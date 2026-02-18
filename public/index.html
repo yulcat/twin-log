@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#1a1a2e">
+  <title>둥이로그 🐣</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- 헤더 -->
+<header>
+  <div class="header-inner">
+    <h1>🐣 둥이로그</h1>
+    <div class="header-right">
+      <span id="sync-indicator" class="sync-dot offline" title="연결 상태"></span>
+      <button class="icon-btn" id="timeline-btn" title="타임라인">📋</button>
+    </div>
+  </div>
+  <!-- 날짜 탭 -->
+  <div class="date-tabs" id="date-tabs"></div>
+</header>
+
+<!-- 아기 탭 -->
+<div class="baby-tabs">
+  <button class="baby-tab active" data-baby="a" id="tab-a">
+    <span class="baby-emoji">🍙</span>
+    <span class="baby-label">아둥이</span>
+    <span class="baby-timer" id="timer-a">--:--</span>
+  </button>
+  <button class="baby-tab" data-baby="b" id="tab-b">
+    <span class="baby-emoji">🌸</span>
+    <span class="baby-label">바둥이</span>
+    <span class="baby-timer" id="timer-b">--:--</span>
+  </button>
+</div>
+
+<!-- 메인 컨텐츠 -->
+<main>
+
+  <!-- 아기별 패널 -->
+  <div class="baby-panel" id="panel-a" data-baby="a">
+    <!-- 수유 섹션 -->
+    <section class="card">
+      <h2>🍼 수유</h2>
+      <div class="btn-grid-3">
+        <button class="action-btn feeding" id="btn-breast-left-a" data-baby="a" data-type="feeding_breast_left">
+          <span class="btn-icon">◀️</span>
+          <span class="btn-label">왼쪽</span>
+          <span class="btn-sub" id="sub-breast-left-a">-</span>
+        </button>
+        <button class="action-btn feeding" id="btn-breast-right-a" data-baby="a" data-type="feeding_breast_right">
+          <span class="btn-icon">▶️</span>
+          <span class="btn-label">오른쪽</span>
+          <span class="btn-sub" id="sub-breast-right-a">-</span>
+        </button>
+        <button class="action-btn feeding bottle" id="btn-bottle-a" data-baby="a" data-type="feeding_bottle">
+          <span class="btn-icon">🍶</span>
+          <span class="btn-label">분유</span>
+          <span class="btn-sub" id="sub-bottle-a">-</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 수면 섹션 -->
+    <section class="card">
+      <h2>😴 수면</h2>
+      <div class="btn-grid-1">
+        <button class="action-btn sleep" id="btn-sleep-a" data-baby="a" data-type="sleep">
+          <span class="btn-icon">🌙</span>
+          <span class="btn-label">수면</span>
+          <span class="btn-sub" id="sub-sleep-a">-</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 기저귀 섹션 -->
+    <section class="card">
+      <h2>🧷 기저귀</h2>
+      <div class="btn-grid-3">
+        <button class="action-btn diaper" data-baby="a" data-type="diaper_wet">
+          <span class="btn-icon">💧</span>
+          <span class="btn-label">소변</span>
+          <span class="btn-sub" id="sub-diaper-wet-a">-</span>
+        </button>
+        <button class="action-btn diaper" data-baby="a" data-type="diaper_dirty">
+          <span class="btn-icon">💩</span>
+          <span class="btn-label">대변</span>
+          <span class="btn-sub" id="sub-diaper-dirty-a">-</span>
+        </button>
+        <button class="action-btn diaper" data-baby="a" data-type="diaper_both">
+          <span class="btn-icon">🌊</span>
+          <span class="btn-label">혼합</span>
+          <span class="btn-sub" id="sub-diaper-both-a">-</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 오늘 통계 -->
+    <section class="card stats-card" id="stats-a">
+      <h2>📊 오늘 아둥이</h2>
+      <div class="stats-grid" id="stats-grid-a"></div>
+    </section>
+
+    <!-- 최근 이벤트 -->
+    <section class="card">
+      <h2>📋 최근 기록 <small id="log-count-a"></small></h2>
+      <div class="event-list" id="event-list-a"></div>
+    </section>
+  </div>
+
+  <div class="baby-panel hidden" id="panel-b" data-baby="b">
+    <!-- 수유 섹션 -->
+    <section class="card">
+      <h2>🍼 수유</h2>
+      <div class="btn-grid-3">
+        <button class="action-btn feeding" id="btn-breast-left-b" data-baby="b" data-type="feeding_breast_left">
+          <span class="btn-icon">◀️</span>
+          <span class="btn-label">왼쪽</span>
+          <span class="btn-sub" id="sub-breast-left-b">-</span>
+        </button>
+        <button class="action-btn feeding" id="btn-breast-right-b" data-baby="b" data-type="feeding_breast_right">
+          <span class="btn-icon">▶️</span>
+          <span class="btn-label">오른쪽</span>
+          <span class="btn-sub" id="sub-breast-right-b">-</span>
+        </button>
+        <button class="action-btn feeding bottle" id="btn-bottle-b" data-baby="b" data-type="feeding_bottle">
+          <span class="btn-icon">🍶</span>
+          <span class="btn-label">분유</span>
+          <span class="btn-sub" id="sub-bottle-b">-</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 수면 섹션 -->
+    <section class="card">
+      <h2>😴 수면</h2>
+      <div class="btn-grid-1">
+        <button class="action-btn sleep" id="btn-sleep-b" data-baby="b" data-type="sleep">
+          <span class="btn-icon">🌙</span>
+          <span class="btn-label">수면</span>
+          <span class="btn-sub" id="sub-sleep-b">-</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 기저귀 섹션 -->
+    <section class="card">
+      <h2>🧷 기저귀</h2>
+      <div class="btn-grid-3">
+        <button class="action-btn diaper" data-baby="b" data-type="diaper_wet">
+          <span class="btn-icon">💧</span>
+          <span class="btn-label">소변</span>
+          <span class="btn-sub" id="sub-diaper-wet-b">-</span>
+        </button>
+        <button class="action-btn diaper" data-baby="b" data-type="diaper_dirty">
+          <span class="btn-icon">💩</span>
+          <span class="btn-label">대변</span>
+          <span class="btn-sub" id="sub-diaper-dirty-b">-</span>
+        </button>
+        <button class="action-btn diaper" data-baby="b" data-type="diaper_both">
+          <span class="btn-icon">🌊</span>
+          <span class="btn-label">혼합</span>
+          <span class="btn-sub" id="sub-diaper-both-b">-</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 오늘 통계 -->
+    <section class="card stats-card" id="stats-b">
+      <h2>📊 오늘 바둥이</h2>
+      <div class="stats-grid" id="stats-grid-b"></div>
+    </section>
+
+    <!-- 최근 이벤트 -->
+    <section class="card">
+      <h2>📋 최근 기록 <small id="log-count-b"></small></h2>
+      <div class="event-list" id="event-list-b"></div>
+    </section>
+  </div>
+
+</main>
+
+<!-- 타임라인 모달 -->
+<div class="modal" id="timeline-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>📋 타임라인</h2>
+      <button class="close-btn" id="close-timeline">✕</button>
+    </div>
+    <div class="modal-body" id="timeline-body"></div>
+  </div>
+</div>
+
+<!-- 분유 입력 모달 -->
+<div class="modal" id="bottle-modal">
+  <div class="modal-content small">
+    <div class="modal-header">
+      <h2>🍶 분유량 입력</h2>
+      <button class="close-btn" id="close-bottle">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="amount-display" id="amount-display">0 ml</div>
+      <div class="amount-grid">
+        <button class="amount-btn" data-delta="-30">-30</button>
+        <button class="amount-btn" data-delta="-10">-10</button>
+        <button class="amount-btn" data-delta="+10">+10</button>
+        <button class="amount-btn" data-delta="+30">+30</button>
+        <button class="amount-btn" data-delta="+50">+50</button>
+        <button class="amount-btn preset" data-preset="50">50ml</button>
+        <button class="amount-btn preset" data-preset="80">80ml</button>
+        <button class="amount-btn preset" data-preset="100">100ml</button>
+        <button class="amount-btn preset" data-preset="120">120ml</button>
+        <button class="amount-btn preset" data-preset="150">150ml</button>
+      </div>
+      <button class="confirm-btn" id="confirm-bottle">기록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 메모 모달 (이벤트 삭제/메모) -->
+<div class="modal" id="event-modal">
+  <div class="modal-content small">
+    <div class="modal-header">
+      <h2 id="event-modal-title">이벤트</h2>
+      <button class="close-btn" id="close-event-modal">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="event-modal-info"></p>
+      <button class="delete-btn" id="delete-event-btn">🗑 삭제</button>
+    </div>
+  </div>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
