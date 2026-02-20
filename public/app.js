@@ -1,5 +1,11 @@
 'use strict';
 
+// ── 유틸 ────────────────────────────────────────────────────
+// type → HTML ID용 slug (feeding_breast_left → breast-left, sleep → sleep)
+function typeSlug(type) {
+  return type.replace(/^feeding_/, '').replace(/_/g, '-');
+}
+
 // ── 상태 ────────────────────────────────────────────────────
 const state = {
   currentBaby: 'a',
@@ -9,6 +15,7 @@ const state = {
     a: { feeding_breast_left: null, feeding_breast_right: null, sleep: null },
     b: { feeding_breast_left: null, feeding_breast_right: null, sleep: null }
   },
+  pendingEventIds: new Set(), // createEvent 완료 후 소켓 중복 방지용
   bottlePending: null,  // { baby }
   eventModalTarget: null, // 이벤트 상세
   stats: { a: {}, b: {} }
@@ -92,18 +99,44 @@ socket.on('disconnect', () => {
 
 socket.on('event:new', (event) => {
   if (event.startTime.startsWith(state.selectedDate)) {
-    // 자기 자신이 만든 것도 수신될 수 있으나 중복 방지
-    if (!state.events.find(e => e.id === event.id)) {
-      state.events.push(event);
-      renderAll();
-      refreshStats();
+    // 이미 로컬에서 push했거나 pending 중이면 skip (race condition 방지)
+    if (state.pendingEventIds.has(event.id) || state.events.find(e => e.id === event.id)) {
+      state.pendingEventIds.delete(event.id);
+      return;
     }
+    // 다른 디바이스에서 만든 이벤트 → 로컬에 추가
+    state.events.push(event);
+    // 진행중 타이머 이벤트면 activeTimers에 등록
+    const timerTypes = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
+    if (timerTypes.includes(event.type) && !event.endTime) {
+      if (!state.activeTimers[event.baby][event.type]) {
+        startTimer(event.baby, event.type, event.id, event.startTime);
+      }
+    }
+    renderAll();
+    refreshStats();
   }
 });
 socket.on('event:update', (event) => {
   const idx = state.events.findIndex(e => e.id === event.id);
   if (idx !== -1) {
     state.events[idx] = event;
+    // 타이머 종료 이벤트면 activeTimers 정리
+    if (event.endTime) {
+      const timerTypes = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
+      if (timerTypes.includes(event.type)) {
+        const active = state.activeTimers[event.baby][event.type];
+        if (active && active.eventId === event.id) {
+          clearInterval(active.interval);
+          state.activeTimers[event.baby][event.type] = null;
+          const btn = document.getElementById(`btn-${typeSlug(event.type)}-${event.baby}`);
+          const subEl = document.getElementById(`sub-${typeSlug(event.type)}-${event.baby}`);
+          if (btn) btn.classList.remove('active');
+          if (subEl) subEl.textContent = '';
+          document.getElementById(`timer-${event.baby}`).textContent = '--:--';
+        }
+      }
+    }
     renderAll();
     refreshStats();
   }
@@ -146,9 +179,11 @@ async function handleActionBtn(baby, type) {
       clearInterval(activeTimer.interval);
       state.activeTimers[baby][type] = null;
 
-      const btn = document.getElementById(`btn-${type.replace(/_/g, '-')}-${baby}`);
+      const btn = document.getElementById(`btn-${typeSlug(type)}-${baby}`);
       btn.classList.remove('active');
-      document.getElementById(`sub-${type.replace(/_/g, '-')}-${baby}`).textContent = '';
+      document.getElementById(`sub-${typeSlug(type)}-${baby}`).textContent = '';
+      // 상단 요약 타이머 초기화
+      document.getElementById(`timer-${baby}`).textContent = '--:--';
       // events 업데이트
       const idx = state.events.findIndex(e => e.id === activeTimer.eventId);
       if (idx !== -1) state.events[idx].endTime = endTime;
@@ -157,6 +192,7 @@ async function handleActionBtn(baby, type) {
     } else {
       // 시작
       const event = await createEvent({ baby, type, startTime: new Date().toISOString() });
+      state.pendingEventIds.add(event.id); // 소켓 중복 방지
       state.events.push(event);
       startTimer(baby, type, event.id, event.startTime);
       renderEventList(baby);
@@ -167,6 +203,7 @@ async function handleActionBtn(baby, type) {
 
   // 기저귀 → 즉시 기록
   const event = await createEvent({ baby, type, startTime: new Date().toISOString() });
+  state.pendingEventIds.add(event.id); // 소켓 중복 방지
   // 깜짝 피드백
   const btns = document.querySelectorAll(`[data-baby="${baby}"][data-type="${type}"]`);
   btns.forEach(b => { b.style.transform = 'scale(0.92)'; setTimeout(() => b.style.transform = '', 150); });
@@ -178,9 +215,15 @@ async function handleActionBtn(baby, type) {
 
 // ── 타이머 ──────────────────────────────────────────────────
 function startTimer(baby, type, eventId, startTimeStr) {
-  const btn = document.getElementById(`btn-${type.replace(/_/g, '-')}-${baby}`);
-  const subEl = document.getElementById(`sub-${type.replace(/_/g, '-')}-${baby}`);
+  const btn = document.getElementById(`btn-${typeSlug(type)}-${baby}`);
+  const subEl = document.getElementById(`sub-${typeSlug(type)}-${baby}`);
   if (!btn || !subEl) return;
+
+  // 기존 타이머가 있으면 먼저 정리 (interval 누수 방지)
+  const existing = state.activeTimers[baby][type];
+  if (existing) {
+    clearInterval(existing.interval);
+  }
 
   btn.classList.add('active');
   const startTime = new Date(startTimeStr).getTime();
@@ -483,6 +526,7 @@ document.addEventListener('DOMContentLoaded', () => {
       endTime: new Date().toISOString(),
       amount: bottleAmount
     });
+    state.pendingEventIds.add(event.id); // 소켓 중복 방지
     state.events.push(event);
     renderEventList(baby);
     refreshStats();
@@ -507,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (activeTimer && activeTimer.eventId === event.id) {
       clearInterval(activeTimer.interval);
       state.activeTimers[event.baby][event.type] = null;
-      const btnId = `btn-${event.type.replace(/_/g, '-')}-${event.baby}`;
+      const btnId = `btn-${typeSlug(event.type)}-${event.baby}`;
       const btn = document.getElementById(btnId);
       if (btn) btn.classList.remove('active');
     }
