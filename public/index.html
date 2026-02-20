@@ -105,6 +105,7 @@
     <section class="card stats-card" id="stats-a">
       <h2>📊 오늘 아둥이</h2>
       <div class="stats-grid" id="stats-grid-a"></div>
+      <button class="growth-btn" id="growth-btn-a">📏 성장 기록</button>
     </section>
 
     <!-- 최근 이벤트 -->
@@ -175,6 +176,7 @@
     <section class="card stats-card" id="stats-b">
       <h2>📊 오늘 바둥이</h2>
       <div class="stats-grid" id="stats-grid-b"></div>
+      <button class="growth-btn" id="growth-btn-b">📏 성장 기록</button>
     </section>
 
     <!-- 최근 이벤트 -->
@@ -233,6 +235,43 @@
     <div class="modal-body">
       <p id="event-modal-info"></p>
       <button class="delete-btn" id="delete-event-btn">🗑 삭제</button>
+    </div>
+  </div>
+</div>
+
+<!-- 성장 기록 모달 -->
+<div class="modal" id="growth-modal">
+  <div class="modal-content growth-modal-content">
+    <div class="modal-header">
+      <h2 id="growth-modal-title">📏 성장 기록</h2>
+      <button class="close-btn" id="close-growth">&times;</button>
+    </div>
+
+    <!-- 입력 폼 -->
+    <div class="growth-form">
+      <div class="growth-row">
+        <label>날짜</label>
+        <input type="date" id="growth-date">
+      </div>
+      <div class="growth-row">
+        <label>체중 (kg)</label>
+        <input type="number" id="growth-weight" step="0.01" min="0" max="30" placeholder="예: 1.34">
+      </div>
+      <div class="growth-row">
+        <label>키 (cm)</label>
+        <input type="number" id="growth-height" step="0.1" min="0" max="120" placeholder="예: 45.5">
+      </div>
+      <div class="growth-row">
+        <label>두위 (cm)</label>
+        <input type="number" id="growth-head" step="0.1" min="0" max="60" placeholder="예: 33.0">
+      </div>
+      <button class="confirm-btn" id="growth-save">저장</button>
+    </div>
+
+    <!-- 기록 테이블 -->
+    <div class="growth-records">
+      <h3>기록 목록</h3>
+      <div id="growth-table"></div>
     </div>
   </div>
 </div>

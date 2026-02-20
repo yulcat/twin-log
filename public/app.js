@@ -581,6 +581,119 @@ document.addEventListener('DOMContentLoaded', () => {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   }
 
+  // ── 성장 기록 ──────────────────────────────────────────────
+  let growthRecords = [];
+  let growthBaby = 'a';
+  let growthLongPressTimer = null;
+
+  async function fetchGrowth(baby) {
+    const res = await fetch(`/api/growth/${baby}`);
+    return res.json();
+  }
+
+  function renderGrowthTable() {
+    const container = document.getElementById('growth-table');
+    if (growthRecords.length === 0) {
+      container.innerHTML = '<div class="growth-empty">아직 기록이 없어요</div>';
+      return;
+    }
+    let html = `<div class="growth-table-row header">
+      <span>날짜</span><span>체중</span><span>키</span><span>두위</span>
+    </div>`;
+    for (const r of growthRecords) {
+      html += `<div class="growth-table-row" data-id="${r.id}">
+        <span>${r.date.slice(5)}</span>
+        <span>${r.weight ? r.weight + 'kg' : '-'}</span>
+        <span>${r.height ? r.height + 'cm' : '-'}</span>
+        <span>${r.headCirc ? r.headCirc + 'cm' : '-'}</span>
+      </div>`;
+    }
+    container.innerHTML = html;
+
+    // 길게 탭 → 삭제
+    container.querySelectorAll('.growth-table-row:not(.header)').forEach(row => {
+      row.addEventListener('touchstart', () => {
+        growthLongPressTimer = setTimeout(async () => {
+          const id = row.dataset.id;
+          if (!confirm('이 기록을 삭제할까요?')) return;
+          await fetch(`/api/growth/${id}`, { method: 'DELETE' });
+          growthRecords = growthRecords.filter(r => r.id !== id);
+          renderGrowthTable();
+        }, 600);
+      });
+      row.addEventListener('touchend', () => clearTimeout(growthLongPressTimer));
+      row.addEventListener('touchmove', () => clearTimeout(growthLongPressTimer));
+      // PC 마우스도
+      row.addEventListener('mousedown', () => {
+        growthLongPressTimer = setTimeout(async () => {
+          const id = row.dataset.id;
+          if (!confirm('이 기록을 삭제할까요?')) return;
+          await fetch(`/api/growth/${id}`, { method: 'DELETE' });
+          growthRecords = growthRecords.filter(r => r.id !== id);
+          renderGrowthTable();
+        }, 600);
+      });
+      row.addEventListener('mouseup', () => clearTimeout(growthLongPressTimer));
+      row.addEventListener('mouseleave', () => clearTimeout(growthLongPressTimer));
+    });
+  }
+
+  async function openGrowthModal(baby) {
+    growthBaby = baby;
+    const name = baby === 'a' ? '아둥이 🍙' : '바둥이 🌸';
+    document.getElementById('growth-modal-title').textContent = `📏 ${name} 성장 기록`;
+    document.getElementById('growth-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('growth-weight').value = '';
+    document.getElementById('growth-height').value = '';
+    document.getElementById('growth-head').value = '';
+    growthRecords = await fetchGrowth(baby);
+    renderGrowthTable();
+    openModal('growth-modal');
+  }
+
+  document.getElementById('growth-btn-a').addEventListener('click', () => openGrowthModal('a'));
+  document.getElementById('growth-btn-b').addEventListener('click', () => openGrowthModal('b'));
+  document.getElementById('close-growth').addEventListener('click', () => closeModal('growth-modal'));
+
+  document.getElementById('growth-save').addEventListener('click', async () => {
+    const date = document.getElementById('growth-date').value;
+    const weight = parseFloat(document.getElementById('growth-weight').value) || null;
+    const height = parseFloat(document.getElementById('growth-height').value) || null;
+    const headCirc = parseFloat(document.getElementById('growth-head').value) || null;
+    if (!weight && !height && !headCirc) {
+      alert('최소 하나는 입력해주세요');
+      return;
+    }
+    const record = await (await fetch('/api/growth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ baby: growthBaby, date, weight, height, headCirc })
+    })).json();
+    growthRecords.unshift(record);
+    renderGrowthTable();
+    // 입력 필드 초기화
+    document.getElementById('growth-weight').value = '';
+    document.getElementById('growth-height').value = '';
+    document.getElementById('growth-head').value = '';
+  });
+
+  // Socket.io 실시간 동기화
+  socket.on('growth:new', (record) => {
+    if (record.baby === growthBaby && document.getElementById('growth-modal').classList.contains('open')) {
+      if (!growthRecords.find(r => r.id === record.id)) {
+        growthRecords.unshift(record);
+        growthRecords.sort((a, b) => b.date.localeCompare(a.date));
+        renderGrowthTable();
+      }
+    }
+  });
+  socket.on('growth:delete', (id) => {
+    growthRecords = growthRecords.filter(r => r.id !== id);
+    if (document.getElementById('growth-modal').classList.contains('open')) {
+      renderGrowthTable();
+    }
+  });
+
   // 초기화
   renderDateTabs();
   loadData();

@@ -11,6 +11,7 @@ const io = new Server(httpServer);
 
 const PORT = 3468;
 const DATA_FILE = path.join(__dirname, 'data', 'events.json');
+const GROWTH_FILE = path.join(__dirname, 'data', 'growth.json');
 
 // ── 데이터 유틸 ──────────────────────────────────────────────
 function loadData() {
@@ -25,9 +26,24 @@ function saveData(data) {
   fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), 'utf8');
 }
 
+function loadGrowth() {
+  try {
+    return JSON.parse(fs.readFileSync(GROWTH_FILE, 'utf8'));
+  } catch {
+    return { records: [] };
+  }
+}
+
+function saveGrowth(data) {
+  fs.writeFileSync(GROWTH_FILE, JSON.stringify(data, null, 2), 'utf8');
+}
+
 // 초기 데이터 파일 생성
 if (!fs.existsSync(DATA_FILE)) {
   saveData({ events: [] });
+}
+if (!fs.existsSync(GROWTH_FILE)) {
+  saveGrowth({ records: [] });
 }
 
 // ── API ──────────────────────────────────────────────────────
@@ -118,6 +134,42 @@ app.get('/api/stats/:date', (req, res) => {
     };
   }
   res.json(stats);
+});
+
+// ── 성장 기록 API ────────────────────────────────────────────
+app.get('/api/growth/:baby', (req, res) => {
+  const data = loadGrowth();
+  const records = data.records
+    .filter(r => r.baby === req.params.baby)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  res.json(records);
+});
+
+app.post('/api/growth', (req, res) => {
+  const data = loadGrowth();
+  const record = {
+    id: uuidv4(),
+    baby: req.body.baby,
+    date: req.body.date,
+    weight: req.body.weight || null,
+    height: req.body.height || null,
+    headCirc: req.body.headCirc || null,
+    createdAt: new Date().toISOString()
+  };
+  data.records.push(record);
+  saveGrowth(data);
+  io.emit('growth:new', record);
+  res.json(record);
+});
+
+app.delete('/api/growth/:id', (req, res) => {
+  const data = loadGrowth();
+  const idx = data.records.findIndex(r => r.id === req.params.id);
+  if (idx === -1) return res.status(404).json({ error: 'not found' });
+  data.records.splice(idx, 1);
+  saveGrowth(data);
+  io.emit('growth:delete', req.params.id);
+  res.json({ ok: true });
 });
 
 // ── Socket.io ────────────────────────────────────────────────
