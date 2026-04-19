@@ -24,7 +24,14 @@ const state = {
 
 // ── 유틸 ───────────────────────────────────────────────────
 function todayStr() {
-  return new Date().toISOString().slice(0, 10);
+  return dateKey(new Date());
+}
+function dateKey(date) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 function fmt(date) {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -119,7 +126,7 @@ async function fetchStats(date) {
 }
 
 function upsertEvent(event) {
-  if (!event.startTime || !event.startTime.startsWith(state.selectedDate)) return false;
+  if (!event.startTime || dateKey(event.startTime) !== state.selectedDate) return false;
   const idx = state.events.findIndex(e => e.id === event.id);
   if (idx === -1) {
     state.events.push(event);
@@ -147,7 +154,7 @@ socket.on('disconnect', () => {
 });
 
 socket.on('event:new', (event) => {
-  if (event.startTime.startsWith(state.selectedDate)) {
+  if (dateKey(event.startTime) === state.selectedDate) {
     const added = upsertEvent(event);
     // 진행중 타이머 이벤트면 activeTimers에 등록
     if (added && TIMER_TYPES.includes(event.type) && !event.endTime) {
@@ -551,7 +558,7 @@ async function openTimeline() {
   const allEvents = await apiFetch('/api/events');
   const byDate = {};
   for (const e of allEvents) {
-    const d = e.startTime.slice(0, 10);
+    const d = dateKey(e.startTime);
     if (!byDate[d]) byDate[d] = [];
     byDate[d].push(e);
   }
@@ -600,7 +607,7 @@ function renderDateTabs() {
   for (let i = 6; i >= 0; i--) {
     const d = new Date();
     d.setDate(d.getDate() - i);
-    dates.push(d.toISOString().slice(0, 10));
+    dates.push(dateKey(d));
   }
   tabs.innerHTML = dates.map(d => {
     const label = d === today ? '오늘' : fmtDate(d);
@@ -819,7 +826,7 @@ document.addEventListener('DOMContentLoaded', () => {
     growthBaby = baby;
     const name = baby === 'a' ? '아둥이 🍙' : '바둥이 🌸';
     document.getElementById('growth-modal-title').textContent = `📏 ${name} 성장 기록`;
-    document.getElementById('growth-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('growth-date').value = todayStr();
     document.getElementById('growth-weight').value = '';
     document.getElementById('growth-height').value = '';
     document.getElementById('growth-head').value = '';

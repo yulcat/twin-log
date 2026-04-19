@@ -100,6 +100,26 @@ test('events API creates, filters, updates, deletes, and reports stats', async (
   });
 });
 
+test('events API date filters use local calendar days', async () => {
+  await withServer(async ({ baseUrl }) => {
+    await jsonFetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      body: JSON.stringify({
+        baby: 'a',
+        type: 'diaper_wet',
+        startTime: '2026-04-18T15:30:00.000Z',
+      }),
+    });
+
+    const localDay = await jsonFetch(`${baseUrl}/api/events?date=2026-04-19`);
+    assert.equal(localDay.body.length, 1);
+    assert.equal(localDay.body[0].type, 'diaper_wet');
+
+    const utcPrefixDay = await jsonFetch(`${baseUrl}/api/events?date=2026-04-18`);
+    assert.equal(utcPrefixDay.body.length, 0);
+  });
+});
+
 test('growth API creates, sorts by date, filters by baby, and deletes records', async () => {
   await withServer(async ({ baseUrl }) => {
     const older = await jsonFetch(`${baseUrl}/api/growth`, {
@@ -126,4 +146,22 @@ test('growth API creates, sorts by date, filters by baby, and deletes records', 
     const remaining = await jsonFetch(`${baseUrl}/api/growth/a`);
     assert.deepEqual(remaining.body.map(record => record.id), [newer.body.id]);
   });
+});
+
+test('summary script counts diaper_both as a diaper event', async () => {
+  const { spawnSync } = require('node:child_process');
+  const script = `
+import importlib.util
+spec = importlib.util.spec_from_file_location("twin_summary", "twin-summary.py")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+summary = module.summarize_baby([{"baby": "a", "type": "diaper_both"}], "a")
+assert summary["diaper_count"] == 1, summary
+`;
+  const result = spawnSync('python3', ['-c', script], {
+    cwd: path.join(__dirname, '..'),
+    encoding: 'utf8',
+  });
+
+  assert.equal(result.status, 0, result.stderr || result.stdout);
 });

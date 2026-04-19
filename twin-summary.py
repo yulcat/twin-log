@@ -121,7 +121,7 @@ def summarize_baby(events: list, baby: str) -> dict:
     total_sleep_min = sum(duration_minutes(e) or 0 for e in sleeps)
     
     # 기저귀 집계
-    diapers = [e for e in mine if e.get("type") in ["diaper_wet", "diaper_dirty", "diaper_mixed"]]
+    diapers = [e for e in mine if e.get("type") in ["diaper_wet", "diaper_dirty", "diaper_both"]]
     diaper_count = len(diapers)
     dirty_count = sum(1 for e in diapers if e.get("type") == "diaper_dirty")
     

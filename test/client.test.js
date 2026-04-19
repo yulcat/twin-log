@@ -75,6 +75,7 @@ function createClientHarness() {
 window.__twinLogTest = {
   state,
   todayStr,
+  dateKey,
   openManualEntry,
   submitManualEntry,
   upsertEvent,
@@ -163,6 +164,25 @@ test('upsertEvent updates existing events without duplicating socket echoes', (t
 
   assert.equal(api.state.events.length, 1);
   assert.equal(api.state.events[0].note, 'updated');
+});
+
+test('upsertEvent uses local date instead of raw UTC date prefix', (t) => {
+  const { window } = createClientHarness();
+  const api = window.__twinLogTest;
+  t.after(() => window.close());
+
+  api.state.selectedDate = '2026-04-19';
+  const added = api.upsertEvent({
+    id: 'early-kst',
+    baby: 'a',
+    type: 'diaper_wet',
+    startTime: '2026-04-18T15:30:00.000Z',
+    note: '',
+  });
+
+  assert.equal(api.dateKey('2026-04-18T15:30:00.000Z'), '2026-04-19');
+  assert.equal(added, true);
+  assert.equal(api.state.events.length, 1);
 });
 
 test('timer button starts one event and stops the same event', async (t) => {

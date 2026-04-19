@@ -27,6 +27,15 @@ function saveJson(filePath, data) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
 }
 
+function dateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 function createTwinLogServer(options = {}) {
   const app = express();
   const httpServer = createServer(app);
@@ -68,7 +77,7 @@ function createTwinLogServer(options = {}) {
     const data = loadData();
     const { date } = req.query; // YYYY-MM-DD
     if (date) {
-      const events = data.events.filter(e => e.startTime.startsWith(date));
+      const events = data.events.filter(e => dateKey(e.startTime) === date);
       res.json(events);
     } else {
       // 최근 7일
@@ -122,7 +131,7 @@ function createTwinLogServer(options = {}) {
   // 통계 (오늘)
   app.get('/api/stats/:date', (req, res) => {
     const data = loadData();
-    const dayEvents = data.events.filter(e => e.startTime.startsWith(req.params.date));
+    const dayEvents = data.events.filter(e => dateKey(e.startTime) === req.params.date);
 
     const stats = { a: {}, b: {} };
     for (const baby of ['a', 'b']) {
