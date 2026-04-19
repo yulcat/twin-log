@@ -65,6 +65,7 @@
           <span class="btn-sub" id="sub-bottle-a">-</span>
         </button>
       </div>
+      <button class="manual-entry-btn" data-baby="a" data-category="feeding">시간 직접 입력</button>
     </section>
 
     <!-- 수면 섹션 -->
@@ -77,6 +78,7 @@
           <span class="btn-sub" id="sub-sleep-a">-</span>
         </button>
       </div>
+      <button class="manual-entry-btn" data-baby="a" data-category="sleep">시간 직접 입력</button>
     </section>
 
     <!-- 기저귀 섹션 -->
@@ -99,6 +101,7 @@
           <span class="btn-sub" id="sub-diaper-both-a">-</span>
         </button>
       </div>
+      <button class="manual-entry-btn" data-baby="a" data-category="diaper">시간 직접 입력</button>
     </section>
 
     <!-- 오늘 통계 -->
@@ -136,6 +139,7 @@
           <span class="btn-sub" id="sub-bottle-b">-</span>
         </button>
       </div>
+      <button class="manual-entry-btn" data-baby="b" data-category="feeding">시간 직접 입력</button>
     </section>
 
     <!-- 수면 섹션 -->
@@ -148,6 +152,7 @@
           <span class="btn-sub" id="sub-sleep-b">-</span>
         </button>
       </div>
+      <button class="manual-entry-btn" data-baby="b" data-category="sleep">시간 직접 입력</button>
     </section>
 
     <!-- 기저귀 섹션 -->
@@ -170,6 +175,7 @@
           <span class="btn-sub" id="sub-diaper-both-b">-</span>
         </button>
       </div>
+      <button class="manual-entry-btn" data-baby="b" data-category="diaper">시간 직접 입력</button>
     </section>
 
     <!-- 오늘 통계 -->
@@ -221,6 +227,53 @@
         <button class="amount-btn preset" data-preset="150">150ml</button>
       </div>
       <button class="confirm-btn" id="confirm-bottle">기록</button>
+    </div>
+  </div>
+</div>
+
+<!-- 시간 직접 입력 모달 -->
+<div class="modal" id="manual-modal">
+  <div class="modal-content small">
+    <div class="modal-header">
+      <h2 id="manual-modal-title">시간 직접 입력</h2>
+      <button class="close-btn" id="close-manual">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="manual-form">
+        <label class="manual-field">
+          <span>종류</span>
+          <select id="manual-type"></select>
+        </label>
+
+        <div id="manual-interval-fields">
+          <label class="manual-field">
+            <span>시작</span>
+            <input type="datetime-local" id="manual-start">
+          </label>
+          <div class="manual-time-pair">
+            <label class="manual-field">
+              <span>기간(분)</span>
+              <input type="number" id="manual-duration" min="1" step="1" inputmode="numeric">
+            </label>
+            <label class="manual-field">
+              <span>종료</span>
+              <input type="datetime-local" id="manual-end">
+            </label>
+          </div>
+        </div>
+
+        <label class="manual-field" id="manual-time-field">
+          <span>시간</span>
+          <input type="datetime-local" id="manual-time">
+        </label>
+
+        <label class="manual-field hidden" id="manual-amount-field">
+          <span>분유량(ml)</span>
+          <input type="number" id="manual-amount" min="0" step="10" inputmode="numeric" placeholder="예: 80">
+        </label>
+
+        <button class="confirm-btn" id="confirm-manual">기록</button>
+      </div>
     </div>
   </div>
 </div>

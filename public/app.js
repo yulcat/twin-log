@@ -15,8 +15,9 @@ const state = {
     a: { feeding_breast_left: null, feeding_breast_right: null, sleep: null },
     b: { feeding_breast_left: null, feeding_breast_right: null, sleep: null }
   },
-  pendingEventIds: new Set(), // createEvent 완료 후 소켓 중복 방지용
+  createLocks: new Set(),
   bottlePending: null,  // { baby }
+  manualEntry: null,    // { baby, category }
   eventModalTarget: null, // 이벤트 상세
   stats: { a: {}, b: {} }
 };
@@ -52,6 +53,28 @@ function fmtDate(str) {
   const days = ['일', '월', '화', '수', '목', '금', '토'];
   return `${d.getMonth() + 1}/${d.getDate()}(${days[d.getDay()]})`;
 }
+function toDatetimeLocalValue(date) {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const y = d.getFullYear();
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${mo}-${day}T${h}:${m}`;
+}
+function selectedDateTimeValue(hour = 12, minute = 0) {
+  const h = String(hour).padStart(2, '0');
+  const m = String(minute).padStart(2, '0');
+  return `${state.selectedDate}T${h}:${m}`;
+}
+function datetimeLocalToIso(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+function clampMinutes(value, fallback) {
+  const n = parseInt(value, 10);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
 
 const TYPE_INFO = {
   feeding_breast_left:  { icon: '◀️', label: '모유(왼쪽)' },
@@ -62,6 +85,14 @@ const TYPE_INFO = {
   diaper_dirty:         { icon: '💩', label: '대변' },
   diaper_both:          { icon: '🌊', label: '혼합(소+대)' },
 };
+
+const TIMER_TYPES = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
+const MANUAL_OPTIONS = {
+  feeding: ['feeding_breast_left', 'feeding_breast_right', 'feeding_bottle'],
+  sleep: ['sleep'],
+  diaper: ['diaper_wet', 'diaper_dirty', 'diaper_both']
+};
+const INTERVAL_MANUAL_TYPES = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
 
 // ── API ─────────────────────────────────────────────────────
 async function apiFetch(url, opts = {}) {
@@ -87,6 +118,24 @@ async function fetchStats(date) {
   return apiFetch(`/api/stats/${date}`);
 }
 
+function upsertEvent(event) {
+  if (!event.startTime || !event.startTime.startsWith(state.selectedDate)) return false;
+  const idx = state.events.findIndex(e => e.id === event.id);
+  if (idx === -1) {
+    state.events.push(event);
+    return true;
+  }
+  state.events[idx] = event;
+  state.events = state.events.filter((e, i) => e.id !== event.id || i === idx);
+  return false;
+}
+
+async function createAndStoreEvent(data) {
+  const event = await createEvent(data);
+  upsertEvent(event);
+  return event;
+}
+
 // ── Socket.io ───────────────────────────────────────────────
 const socket = io();
 
@@ -99,16 +148,9 @@ socket.on('disconnect', () => {
 
 socket.on('event:new', (event) => {
   if (event.startTime.startsWith(state.selectedDate)) {
-    // 이미 로컬에서 push했거나 pending 중이면 skip (race condition 방지)
-    if (state.pendingEventIds.has(event.id) || state.events.find(e => e.id === event.id)) {
-      state.pendingEventIds.delete(event.id);
-      return;
-    }
-    // 다른 디바이스에서 만든 이벤트 → 로컬에 추가
-    state.events.push(event);
+    const added = upsertEvent(event);
     // 진행중 타이머 이벤트면 activeTimers에 등록
-    const timerTypes = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
-    if (timerTypes.includes(event.type) && !event.endTime) {
+    if (added && TIMER_TYPES.includes(event.type) && !event.endTime) {
       if (!state.activeTimers[event.baby][event.type]) {
         startTimer(event.baby, event.type, event.id, event.startTime);
       }
@@ -123,8 +165,7 @@ socket.on('event:update', (event) => {
     state.events[idx] = event;
     // 타이머 종료 이벤트면 activeTimers 정리
     if (event.endTime) {
-      const timerTypes = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
-      if (timerTypes.includes(event.type)) {
+      if (TIMER_TYPES.includes(event.type)) {
         const active = state.activeTimers[event.baby][event.type];
         if (active && active.eventId === event.id) {
           clearInterval(active.interval);
@@ -142,9 +183,9 @@ socket.on('event:update', (event) => {
   }
 });
 socket.on('event:delete', (id) => {
-  const idx = state.events.findIndex(e => e.id === id);
-  if (idx !== -1) {
-    state.events.splice(idx, 1);
+  const before = state.events.length;
+  state.events = state.events.filter(e => e.id !== id);
+  if (state.events.length !== before) {
     renderAll();
     refreshStats();
   }
@@ -169,8 +210,7 @@ async function handleActionBtn(baby, type) {
   }
 
   // 타이머 있는 이벤트 (모유, 수면)
-  const timerTypes = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
-  if (timerTypes.includes(type)) {
+  if (TIMER_TYPES.includes(type)) {
     const activeTimer = state.activeTimers[baby][type];
     if (activeTimer) {
       // 종료
@@ -191,26 +231,36 @@ async function handleActionBtn(baby, type) {
       refreshStats();
     } else {
       // 시작
-      const event = await createEvent({ baby, type, startTime: new Date().toISOString() });
-      state.pendingEventIds.add(event.id); // 소켓 중복 방지
-      state.events.push(event);
-      startTimer(baby, type, event.id, event.startTime);
-      renderEventList(baby);
-      refreshStats();
+      const lockKey = `${baby}:${type}:start`;
+      if (state.createLocks.has(lockKey)) return;
+      state.createLocks.add(lockKey);
+      try {
+        const event = await createAndStoreEvent({ baby, type, startTime: new Date().toISOString() });
+        startTimer(baby, type, event.id, event.startTime);
+        renderEventList(baby);
+        refreshStats();
+      } finally {
+        state.createLocks.delete(lockKey);
+      }
     }
     return;
   }
 
   // 기저귀 → 즉시 기록
-  const event = await createEvent({ baby, type, startTime: new Date().toISOString() });
-  state.pendingEventIds.add(event.id); // 소켓 중복 방지
+  const lockKey = `${baby}:${type}:quick`;
+  if (state.createLocks.has(lockKey)) return;
+  state.createLocks.add(lockKey);
   // 깜짝 피드백
   const btns = document.querySelectorAll(`[data-baby="${baby}"][data-type="${type}"]`);
   btns.forEach(b => { b.style.transform = 'scale(0.92)'; setTimeout(() => b.style.transform = '', 150); });
-  state.events.push(event);
-  renderEventList(baby);
-  refreshStats();
-  updateLastTimers();
+  try {
+    await createAndStoreEvent({ baby, type, startTime: new Date().toISOString() });
+    renderEventList(baby);
+    refreshStats();
+    updateLastTimers();
+  } finally {
+    state.createLocks.delete(lockKey);
+  }
 }
 
 // ── 타이머 ──────────────────────────────────────────────────
@@ -248,9 +298,8 @@ function startTimer(baby, type, eventId, startTimeStr) {
 
 function restoreActiveTimers() {
   // 서버에 endTime 없는 수유/수면 이벤트 복원
-  const timerTypes = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
   for (const baby of ['a', 'b']) {
-    for (const type of timerTypes) {
+    for (const type of TIMER_TYPES) {
       const ongoing = state.events.find(e =>
         e.baby === baby && e.type === type && !e.endTime
       );
@@ -258,6 +307,105 @@ function restoreActiveTimers() {
         startTimer(baby, type, ongoing.id, ongoing.startTime);
       }
     }
+  }
+}
+
+function openManualEntry(baby, category) {
+  state.manualEntry = { baby, category };
+  const options = MANUAL_OPTIONS[category] || [];
+  const now = new Date();
+  const selectedIsToday = state.selectedDate === todayStr();
+  const end = selectedIsToday ? now : new Date(`${selectedDateTimeValue(12, 0)}:00`);
+  const defaultMinutes = category === 'sleep' ? 60 : 15;
+  const start = new Date(end.getTime() - defaultMinutes * 60000);
+
+  document.getElementById('manual-modal-title').textContent =
+    `${baby === 'a' ? '아둥이' : '바둥이'} 시간 직접 입력`;
+  const typeSelect = document.getElementById('manual-type');
+  typeSelect.innerHTML = options.map(type => {
+    const info = TYPE_INFO[type];
+    return `<option value="${type}">${info.icon} ${info.label}</option>`;
+  }).join('');
+
+  document.getElementById('manual-start').value = toDatetimeLocalValue(start);
+  document.getElementById('manual-end').value = toDatetimeLocalValue(end);
+  document.getElementById('manual-time').value = toDatetimeLocalValue(end);
+  document.getElementById('manual-duration').value = defaultMinutes;
+  document.getElementById('manual-amount').value = '';
+  updateManualFields();
+  openModal('manual-modal');
+}
+
+function updateManualFields() {
+  const type = document.getElementById('manual-type').value;
+  const isInterval = INTERVAL_MANUAL_TYPES.includes(type);
+  const isBottle = type === 'feeding_bottle';
+
+  document.getElementById('manual-interval-fields').classList.toggle('hidden', !isInterval);
+  document.getElementById('manual-time-field').classList.toggle('hidden', isInterval);
+  document.getElementById('manual-amount-field').classList.toggle('hidden', !isBottle);
+}
+
+function syncManualDurationFromTimes() {
+  const start = new Date(document.getElementById('manual-start').value);
+  const end = new Date(document.getElementById('manual-end').value);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end <= start) return;
+  document.getElementById('manual-duration').value = Math.round((end - start) / 60000);
+}
+
+function syncManualEndFromDuration() {
+  const start = new Date(document.getElementById('manual-start').value);
+  if (Number.isNaN(start.getTime())) return;
+  const minutes = clampMinutes(document.getElementById('manual-duration').value, 15);
+  document.getElementById('manual-end').value = toDatetimeLocalValue(new Date(start.getTime() + minutes * 60000));
+}
+
+async function submitManualEntry() {
+  const manual = state.manualEntry;
+  if (!manual) return;
+
+  const type = document.getElementById('manual-type').value;
+  const isInterval = INTERVAL_MANUAL_TYPES.includes(type);
+  const isBottle = type === 'feeding_bottle';
+  const lockKey = `${manual.baby}:${type}:manual`;
+  if (state.createLocks.has(lockKey)) return;
+
+  let startTime;
+  let endTime = null;
+  let amount = null;
+
+  if (isInterval) {
+    startTime = datetimeLocalToIso(document.getElementById('manual-start').value);
+    endTime = datetimeLocalToIso(document.getElementById('manual-end').value);
+    if (!startTime || !endTime) {
+      alert('시작과 종료 시간을 입력해주세요');
+      return;
+    }
+    if (new Date(endTime) <= new Date(startTime)) {
+      alert('종료 시간은 시작 시간보다 늦어야 해요');
+      return;
+    }
+  } else {
+    startTime = datetimeLocalToIso(document.getElementById('manual-time').value);
+    if (!startTime) {
+      alert('기록 시간을 입력해주세요');
+      return;
+    }
+    if (isBottle) {
+      endTime = startTime;
+      amount = parseInt(document.getElementById('manual-amount').value, 10) || null;
+    }
+  }
+
+  state.createLocks.add(lockKey);
+  try {
+    await createAndStoreEvent({ baby: manual.baby, type, startTime, endTime, amount });
+    closeModal('manual-modal');
+    state.manualEntry = null;
+    renderAll();
+    refreshStats();
+  } finally {
+    state.createLocks.delete(lockKey);
   }
 }
 
@@ -502,10 +650,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  document.querySelectorAll('.manual-entry-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      openManualEntry(btn.dataset.baby, btn.dataset.category);
+    });
+  });
+
   // 분유 모달 — 증감 버튼
   let bottleAmount = 0;
   document.querySelectorAll('.amount-btn').forEach(btn => {
     btn.addEventListener('click', () => {
+      bottleAmount = parseInt(document.getElementById('amount-display').textContent, 10) || 0;
       if (btn.dataset.preset) {
         bottleAmount = parseInt(btn.dataset.preset);
       } else {
@@ -518,23 +673,46 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('confirm-bottle').addEventListener('click', async () => {
     const { baby } = state.bottlePending || {};
     if (!baby) return;
+    const lockKey = `${baby}:feeding_bottle:quick`;
+    if (state.createLocks.has(lockKey)) return;
+    state.createLocks.add(lockKey);
     closeModal('bottle-modal');
-    const event = await createEvent({
-      baby,
-      type: 'feeding_bottle',
-      startTime: new Date().toISOString(),
-      endTime: new Date().toISOString(),
-      amount: bottleAmount
-    });
-    state.pendingEventIds.add(event.id); // 소켓 중복 방지
-    state.events.push(event);
-    renderEventList(baby);
-    refreshStats();
-    bottleAmount = 0;
-    state.bottlePending = null;
+    const now = new Date().toISOString();
+    const amount = parseInt(document.getElementById('amount-display').textContent, 10) || 0;
+    try {
+      await createAndStoreEvent({
+        baby,
+        type: 'feeding_bottle',
+        startTime: now,
+        endTime: now,
+        amount
+      });
+      renderEventList(baby);
+      refreshStats();
+      bottleAmount = 0;
+      document.getElementById('amount-display').textContent = '0 ml';
+      state.bottlePending = null;
+    } finally {
+      state.createLocks.delete(lockKey);
+    }
   });
 
-  document.getElementById('close-bottle').addEventListener('click', () => closeModal('bottle-modal'));
+  document.getElementById('close-bottle').addEventListener('click', () => {
+    bottleAmount = 0;
+    state.bottlePending = null;
+    document.getElementById('amount-display').textContent = '0 ml';
+    closeModal('bottle-modal');
+  });
+
+  document.getElementById('manual-type').addEventListener('change', updateManualFields);
+  document.getElementById('manual-start').addEventListener('change', syncManualEndFromDuration);
+  document.getElementById('manual-duration').addEventListener('change', syncManualEndFromDuration);
+  document.getElementById('manual-end').addEventListener('change', syncManualDurationFromTimes);
+  document.getElementById('confirm-manual').addEventListener('click', submitManualEntry);
+  document.getElementById('close-manual').addEventListener('click', () => {
+    state.manualEntry = null;
+    closeModal('manual-modal');
+  });
 
   // 타임라인
   document.getElementById('timeline-btn').addEventListener('click', openTimeline);
@@ -557,8 +735,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     await deleteEvent(event.id);
-    const idx = state.events.findIndex(e => e.id === event.id);
-    if (idx !== -1) state.events.splice(idx, 1);
+    state.events = state.events.filter(e => e.id !== event.id);
     closeModal('event-modal');
     renderAll();
     refreshStats();

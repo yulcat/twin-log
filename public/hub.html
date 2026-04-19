@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#080d1a">
+  <title>🐣 아기 허브</title>
+  <style>
+    :root {
+      --bg: #080d1a;
+      --surface: #0f1729;
+      --surface2: #162040;
+      --border: #1e2d50;
+      --text: #e2eaf8;
+      --text2: #8ba4cc;
+      --green: #22c55e;
+      --yellow: #f59e0b;
+      --orange: #f97316;
+      --red: #ef4444;
+      --accent: #6366f1;
+      --accent2: #818cf8;
+      --sos: #dc2626;
+      --sos-hover: #b91c1c;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Apple SD Gothic Neo', 'Pretendard', sans-serif;
+      -webkit-tap-highlight-color: transparent;
+      overscroll-behavior: none;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* ── Header ───────────────────────────── */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px 12px;
+      background: linear-gradient(180deg, rgba(8,13,26,0.98) 0%, transparent 100%);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .clock-block { flex: 1; }
+    .clock {
+      font-size: 2.6rem;
+      font-weight: 700;
+      letter-spacing: -1px;
+      line-height: 1;
+      color: var(--text);
+    }
+    .date-str {
+      font-size: 0.8rem;
+      color: var(--text2);
+      margin-top: 2px;
+    }
+    .header-actions { display: flex; gap: 8px; }
+    .icon-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text2);
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      font-size: 1.2rem;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .icon-btn:active { transform: scale(0.9); background: var(--border); }
+    .dim-active { opacity: 0.35; }
+
+    /* ── SOS Button ───────────────────────── */
+    .sos-bar {
+      margin: 0 16px 16px;
+    }
+    .sos-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 16px;
+      background: var(--sos);
+      border: none;
+      border-radius: 16px;
+      color: #fff;
+      font-size: 1.1rem;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+      transition: all 0.15s;
+      box-shadow: 0 4px 24px rgba(220,38,38,0.4);
+      letter-spacing: 0.02em;
+    }
+    .sos-btn:active { transform: scale(0.97); background: var(--sos-hover); }
+    .sos-btn .sos-icon { font-size: 1.4rem; }
+
+    /* ── Status Cards ─────────────────────── */
+    .status-section {
+      padding: 0 16px 16px;
+    }
+    .section-title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      color: var(--text2);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .baby-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 110px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .baby-card.status-ok    { border-color: rgba(34,197,94,0.35); }
+    .baby-card.status-warn  { border-color: rgba(245,158,11,0.45); }
+    .baby-card.status-urgent { border-color: rgba(239,68,68,0.5); }
+    .baby-name {
+      font-size: 0.95rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .status-ok    .status-dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-warn  .status-dot { background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+    .status-urgent .status-dot { background: var(--red); box-shadow: 0 0 8px var(--red); animation: pulse 1.5s infinite; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .baby-event {
+      font-size: 0.8rem;
+      color: var(--text2);
+      line-height: 1.4;
+    }
+    .baby-elapsed {
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin-top: auto;
+    }
+    .elapsed-ok     { color: var(--green); }
+    .elapsed-warn   { color: var(--yellow); }
+    .elapsed-urgent { color: var(--red); }
+    .loading-card {
+      color: var(--text2);
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .setup-hint {
+      grid-column: 1/-1;
+      text-align: center;
+      padding: 20px;
+      color: var(--text2);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+    .setup-hint a {
+      color: var(--accent2);
+      text-decoration: none;
+    }
+
+    /* ── Tools Grid ───────────────────────── */
+    .tools-section {
+      padding: 0 16px 8px;
+    }
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    @media (min-width: 400px) {
+      .tools-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .tool-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      padding: 14px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      text-decoration: none;
+      color: var(--text);
+      transition: all 0.15s;
+      cursor: pointer;
+    }
+    .tool-item:active { transform: scale(0.93); background: var(--surface2); }
+    .tool-icon { font-size: 1.6rem; line-height: 1; }
+    .tool-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: var(--text2);
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    /* ── Footer spacer ────────────────────── */
+    .spacer { flex: 1; min-height: 24px; }
+    .footer {
+      padding: 16px;
+      text-align: center;
+      font-size: 0.7rem;
+      color: var(--border);
+    }
+
+    /* ── Settings modal ───────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.75);
+      z-index: 200;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px 24px 0 0;
+      padding: 24px;
+      width: 100%;
+      max-width: 500px;
+    }
+    .modal h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .form-group { margin-bottom: 14px; }
+    .form-group label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--text2);
+      margin-bottom: 6px;
+    }
+    .form-group input {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+      padding: 10px 12px;
+      outline: none;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+    .modal-btns {
+      display: flex; gap: 10px; margin-top: 20px;
+    }
+    .btn {
+      flex: 1; padding: 12px;
+      border: none; border-radius: 12px;
+      font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-secondary { background: var(--surface2); color: var(--text2); }
+    .btn:active { transform: scale(0.96); }
+
+    /* ── Dim overlay ─────────────────────── */
+    #dim-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.88);
+      z-index: 300;
+      cursor: pointer;
+    }
+    #dim-overlay.active { display: block; }
+
+    /* ── Refresh indicator ───────────────── */
+    .refresh-time {
+      font-size: 0.65rem;
+      color: var(--border);
+      text-align: right;
+      padding: 0 16px 8px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 화면 어둡게 오버레이 -->
+<div id="dim-overlay" onclick="toggleDim()"></div>
+
+<!-- 헤더 -->
+<header class="header">
+  <div class="clock-block">
+    <div class="clock" id="clock">--:--</div>
+    <div class="date-str" id="date-str">로딩 중...</div>
+  </div>
+  <div class="header-actions">
+    <button class="icon-btn" onclick="toggleDim()" title="화면 어둡게">🌙</button>
+    <button class="icon-btn" onclick="openSettings()" title="설정">⚙️</button>
+  </div>
+</header>
+
+<!-- SOS 버튼 -->
+<div class="sos-bar">
+  <a href="https://yulcat.github.io/baby-sos" class="sos-btn" target="_blank">
+    <span class="sos-icon">🚨</span>
+    응급 가이드 (오프라인 가능)
+  </a>
+</div>
+
+<!-- 아기 상태 -->
+<section class="status-section">
+  <div class="section-title">아기 현황</div>
+  <div class="status-grid" id="status-grid">
+    <div class="baby-card loading-card" style="grid-column:1/-1">
+      <span id="status-msg">twin-log 연결 확인 중...</span>
+    </div>
+  </div>
+</section>
+<div class="refresh-time" id="refresh-time"></div>
+
+<!-- 도구 모음 -->
+<section class="tools-section">
+  <div class="section-title">도구 모음</div>
+  <div class="tools-grid">
+
+    <!-- 핵심 도구 -->
+    <a class="tool-item" href="/index.html" target="_blank">
+      <span class="tool-icon">📋</span>
+      <span class="tool-label">둥이로그</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/partner-brief" target="_blank">
+      <span class="tool-icon">🤝</span>
+      <span class="tool-label">교대 인수인계</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/nap-radar" target="_blank">
+      <span class="tool-icon">⏱️</span>
+      <span class="tool-label">낮잠 레이더</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/voice-log" target="_blank">
+      <span class="tool-icon">🎤</span>
+      <span class="tool-label">음성 기록</span>
+    </a>
+
+    <!-- 건강/안전 -->
+    <a class="tool-item" id="lullaby-link" href="javascript:void(0)">
+      <span class="tool-icon">🎵</span>
+      <span class="tool-label">자장가</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/baby-sos" target="_blank">
+      <span class="tool-icon">🏥</span>
+      <span class="tool-label">응급 가이드</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/vaccine-schedule" target="_blank">
+      <span class="tool-icon">💉</span>
+      <span class="tool-label">예방접종</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/recovery-journal" target="_blank">
+      <span class="tool-icon">🌿</span>
+      <span class="tool-label">회복 일지</span>
+    </a>
+
+    <!-- 성장/지원 -->
+    <a class="tool-item" id="growth-link" href="javascript:void(0)">
+      <span class="tool-icon">📈</span>
+      <span class="tool-label">성장 곡선</span>
+    </a>
+    <a class="tool-item" id="help-link" href="javascript:void(0)">
+      <span class="tool-icon">🙌</span>
+      <span class="tool-label">도움반</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/bump-diary" target="_blank">
+      <span class="tool-icon">📔</span>
+      <span class="tool-label">태교 일기</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/baby-sos#first100" target="_blank">
+      <span class="tool-icon">🌟</span>
+      <span class="tool-label">첫 100일</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/twin-passport/" target="_blank">
+      <span class="tool-icon">🛂</span>
+      <span class="tool-label">성장 여권</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/med-log/" target="_blank">
+      <span class="tool-icon">💊</span>
+      <span class="tool-label">메디로그</span>
+    </a>
+
+    <!-- 출산 준비/환경 -->
+    <a class="tool-item" href="https://yulcat.github.io/outdoor-ok/" target="_blank">
+      <span class="tool-icon">🌤️</span>
+      <span class="tool-label">외출 체커</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/sitter-brief/" target="_blank">
+      <span class="tool-icon">📝</span>
+      <span class="tool-label">돌봄 설명서</span>
+    </a>
+    <a class="tool-item" href="https://yulcat.github.io/birth-bag/" target="_blank">
+      <span class="tool-icon">🎒</span>
+      <span class="tool-label">입원 가방</span>
+    </a>
+    <a class="tool-item" id="wave-link" href="javascript:void(0)">
+      <span class="tool-icon">🌊</span>
+      <span class="tool-label">수축 타이머</span>
+    </a>
+  </div>
+</section>
+
+<div class="spacer"></div>
+<div class="footer">🐹 햄집사 작</div>
+
+<!-- 설정 모달 -->
+<div class="modal-overlay" id="settings-modal">
+  <div class="modal">
+    <h3>⚙️ 설정</h3>
+    <div class="form-group">
+      <label>twin-log 서버 주소</label>
+      <input type="text" id="twin-log-url" placeholder="http://100.92.91.95:3468">
+    </div>
+    <div style="font-size:0.75rem; color:var(--text2); margin-top:-6px; margin-bottom:12px; line-height:1.5;">
+      Tailscale 주소를 입력하면 아기 현황이 실시간으로 표시됩니다.
+      같은 WiFi 또는 Tailscale 연결 시 동작합니다.
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-secondary" onclick="closeSettings()">취소</button>
+      <button class="btn btn-primary" onclick="saveSettings()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── 설정 ─────────────────────────────────────────────────────
+const DEFAULT_API = ''; // 같은 서버이면 상대경로
+let settings = {
+  twinLogUrl: localStorage.getItem('hub_twinlog_url') || DEFAULT_API,
+};
+
+// 같은 서버에서 실행 중이므로 기본값 = 현재 origin
+function getApiBase() {
+  if (settings.twinLogUrl) return settings.twinLogUrl;
+  return window.location.origin; // same-origin
+}
+
+// ── 시계 ─────────────────────────────────────────────────────
+const DAYS = ['일','월','화','수','목','금','토'];
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('clock').textContent = `${h}:${m}`;
+  const mo = now.getMonth()+1, d = now.getDate(), day = DAYS[now.getDay()];
+  document.getElementById('date-str').textContent = `${mo}월 ${d}일 (${day})`;
+}
+updateClock();
+setInterval(updateClock, 10000);
+
+// ── 이벤트 타입 레이블 ────────────────────────────────────────
+const EVENT_LABELS = {
+  feeding_breast_left:  '모유 (왼쪽)',
+  feeding_breast_right: '모유 (오른쪽)',
+  feeding_bottle:       '분유',
+  sleep:                '수면',
+  diaper_wet:           '기저귀 (소)',
+  diaper_dirty:         '기저귀 (대)',
+  diaper_both:          '기저귀 (소+대)',
+};
+function labelOf(type) { return EVENT_LABELS[type] || type; }
+
+// ── 경과 시간 계산 ────────────────────────────────────────────
+function elapsedStr(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 60000); // 분
+  if (diff < 60) return `${diff}분 전`;
+  const h = Math.floor(diff / 60), m = diff % 60;
+  return m > 0 ? `${h}시간 ${m}분 전` : `${h}시간 전`;
+}
+function elapsedClass(iso, type) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 60000);
+  const isFeeding = type && type.startsWith('feeding_');
+  if (isFeeding) {
+    if (diff < 120) return 'elapsed-ok';
+    if (diff < 180) return 'elapsed-warn';
+    return 'elapsed-urgent';
+  } else if (type === 'sleep') {
+    if (diff < 45) return 'elapsed-ok';
+    if (diff < 90) return 'elapsed-warn';
+    return 'elapsed-urgent';
+  }
+  return 'elapsed-ok';
+}
+function statusClass(iso, type) {
+  const diff = Math.floor((Date.now() - new Date(iso)) / 60000);
+  const isFeeding = type && type.startsWith('feeding_');
+  if (isFeeding) {
+    if (diff < 120) return 'status-ok';
+    if (diff < 180) return 'status-warn';
+    return 'status-urgent';
+  }
+  return 'status-ok';
+}
+
+// ── twin-log API 호출 ─────────────────────────────────────────
+async function fetchBabyStatus() {
+  const base = getApiBase();
+  try {
+    const res = await fetch(`${base}/api/events`, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const events = await res.json();
+
+    // 아기별 최신 이벤트
+    const status = { a: null, b: null };
+    for (const ev of events) {
+      if (!status[ev.baby] || new Date(ev.startTime) > new Date(status[ev.baby].startTime)) {
+        status[ev.baby] = ev;
+      }
+    }
+
+    // 진행 중 수면/수유도 별도 표시
+    const activeNow = { a: null, b: null };
+    for (const ev of events) {
+      if (!ev.endTime) {
+        // 진행 중
+        if (!activeNow[ev.baby] || new Date(ev.startTime) > new Date(activeNow[ev.baby].startTime)) {
+          activeNow[ev.baby] = ev;
+        }
+      }
+    }
+
+    renderBabyCards(status, activeNow);
+    document.getElementById('refresh-time').textContent = `마지막 새로고침: ${new Date().toLocaleTimeString('ko-KR')}`;
+  } catch (e) {
+    showStatusError(e.message);
+  }
+}
+
+function renderBabyCards(status, activeNow) {
+  const grid = document.getElementById('status-grid');
+  grid.innerHTML = '';
+
+  const babies = [
+    { key: 'a', name: '진우', emoji: '🐣' },
+    { key: 'b', name: '주하', emoji: '🐥' },
+  ];
+
+  for (const baby of babies) {
+    const card = document.createElement('div');
+    const ev = status[baby.key];
+    const active = activeNow[baby.key];
+
+    if (!ev) {
+      card.className = 'baby-card';
+      card.innerHTML = `
+        <div class="baby-name"><span class="status-dot"></span>${baby.emoji} ${baby.name}</div>
+        <div class="baby-event" style="color:var(--text2)">기록 없음</div>
+      `;
+      grid.appendChild(card);
+      continue;
+    }
+
+    const sc = statusClass(ev.startTime, ev.type);
+    card.className = `baby-card ${sc}`;
+
+    let detail = '';
+    if (active && active.id !== ev.id) {
+      // 진행 중 이벤트가 따로 있는 경우
+      const dur = Math.floor((Date.now() - new Date(active.startTime)) / 60000);
+      detail = `⏳ ${labelOf(active.type)} 진행 중 (${dur}분)`;
+    } else if (ev.type === 'feeding_bottle' && ev.amount) {
+      detail = `${labelOf(ev.type)} ${ev.amount}ml`;
+    } else {
+      detail = labelOf(ev.type);
+    }
+
+    const elClass = elapsedClass(ev.startTime, ev.type);
+    const elapsed = elapsedStr(ev.startTime);
+
+    card.innerHTML = `
+      <div class="baby-name"><span class="status-dot"></span>${baby.emoji} ${baby.name}</div>
+      <div class="baby-event">${detail}</div>
+      <div class="baby-elapsed ${elClass}">${elapsed}</div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function showStatusError(msg) {
+  const grid = document.getElementById('status-grid');
+  grid.innerHTML = `
+    <div class="setup-hint" style="grid-column:1/-1">
+      twin-log 연결 안 됨<br>
+      <a href="javascript:openSettings()">설정에서 서버 주소 확인</a><br>
+      <small style="color:var(--border)">${msg}</small>
+    </div>
+  `;
+}
+
+// 30초마다 새로고침
+fetchBabyStatus();
+setInterval(fetchBabyStatus, 30000);
+
+// ── 링크 동적 설정 (같은 서버의 다른 앱들) ────────────────────
+function updateDynamicLinks() {
+  const base = getApiBase();
+  const origin = base || window.location.origin;
+  const host = new URL(origin.startsWith('http') ? origin : `http://${origin}`).hostname;
+  const rootUrl = `http://${host}`;
+
+  document.getElementById('lullaby-link').href = `${rootUrl}:3474/`;
+  document.getElementById('growth-link').href = `${rootUrl}:3472/`;
+  document.getElementById('help-link').href = `${rootUrl}:3471/`;
+  document.getElementById('wave-link').href = `${rootUrl}:3470/`;
+}
+updateDynamicLinks();
+
+// ── 야간 모드 ─────────────────────────────────────────────────
+let dimmed = false;
+function toggleDim() {
+  dimmed = !dimmed;
+  document.getElementById('dim-overlay').classList.toggle('active', dimmed);
+}
+
+// ── 설정 ─────────────────────────────────────────────────────
+function openSettings() {
+  document.getElementById('twin-log-url').value = settings.twinLogUrl || '';
+  document.getElementById('settings-modal').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settings-modal').classList.remove('open');
+}
+function saveSettings() {
+  settings.twinLogUrl = document.getElementById('twin-log-url').value.trim();
+  localStorage.setItem('hub_twinlog_url', settings.twinLogUrl);
+  closeSettings();
+  updateDynamicLinks();
+  fetchBabyStatus();
+}
+document.getElementById('settings-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeSettings();
+});
+
+// ── 서비스 워커 ───────────────────────────────────────────────
+if ('serviceWorker' in navigator) {
+  // twin-log의 SW를 재사용하지 않도록 별도 경로 사용 안함
+  // 오프라인에서 hub 자체는 SOS 링크 제외 대부분 기능 불가 (API 필요)
+  // 그냥 기본 캐싱만
+}
+
+// ── Screen Wake Lock ──────────────────────────────────────────
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch {}
+}
+requestWakeLock();
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') requestWakeLock();
+});
+</script>
+</body>
+</html>

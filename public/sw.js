@@ -1,4 +1,4 @@
-const CACHE = 'twin-log-v1';
+const CACHE = 'twin-log-v3';
 const ASSETS = ['/', '/app.js', '/style.css', '/manifest.json'];
 
 self.addEventListener('install', e => {
