@@ -4,6 +4,7 @@ const { Server } = require('socket.io');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
+const { eventRangeOverlaps } = require('./public/patterns');
 
 const DEFAULT_PORT = 3468;
 const DEFAULT_DATA_FILE = path.join(__dirname, 'data', 'events.json');
@@ -85,6 +86,24 @@ function createTwinLogServer(options = {}) {
       cutoff.setDate(cutoff.getDate() - 7);
       res.json(data.events.filter(e => new Date(e.startTime) >= cutoff));
     }
+  });
+
+  // 이벤트 범위 조회 (주간 패턴용)
+  app.get('/api/events/range', (req, res) => {
+    const { start, end, baby } = req.query;
+    if (!start || !end) {
+      return res.status(400).json({ error: 'start and end are required' });
+    }
+    if (start > end) {
+      return res.status(400).json({ error: 'start must be before or equal to end' });
+    }
+
+    const data = loadData();
+    const events = data.events.filter(event => {
+      if (baby && event.baby !== baby) return false;
+      return eventRangeOverlaps(event, start, end);
+    });
+    res.json(events);
   });
 
   // 이벤트 생성

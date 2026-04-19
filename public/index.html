@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#1a1a2e">
   <title>둥이로그 🐣</title>
   <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/apple-touch-icon.png">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   <link rel="stylesheet" href="/style.css">
 </head>
@@ -19,6 +20,7 @@
     <h1>🐣 둥이로그</h1>
     <div class="header-right">
       <span id="sync-indicator" class="sync-dot offline" title="연결 상태"></span>
+      <button class="icon-btn" id="pattern-btn" title="패턴">🧶</button>
       <button class="icon-btn" id="timeline-btn" title="타임라인">📋</button>
     </div>
   </div>
@@ -194,6 +196,28 @@
 
 </main>
 
+<!-- 패턴 모달 -->
+<div class="modal" id="pattern-modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 id="pattern-modal-title">🧶 패턴</h2>
+      <button class="close-btn" id="close-pattern">✕</button>
+    </div>
+    <div class="modal-body pattern-modal-body">
+      <div class="pattern-summary" id="pattern-summary"></div>
+      <div class="pattern-filters" id="pattern-filters"></div>
+      <div class="pattern-axis">
+        <span>0시</span>
+        <span>6시</span>
+        <span>12시</span>
+        <span>18시</span>
+        <span>24시</span>
+      </div>
+      <div class="pattern-chart" id="pattern-chart"></div>
+    </div>
+  </div>
+</div>
+
 <!-- 타임라인 모달 -->
 <div class="modal" id="timeline-modal">
   <div class="modal-content">
@@ -330,6 +354,7 @@
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
+<script src="/patterns.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

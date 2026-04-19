@@ -535,6 +535,142 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
 .tl-desc { font-size: 0.88rem; }
 .tl-time { font-size: 0.75rem; color: var(--text-muted); }
 
+/* ── 패턴 뷰 ─────────────────────────────────────────────── */
+.pattern-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pattern-summary {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.pattern-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pattern-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.pattern-chip.active {
+  border-color: rgba(124, 58, 237, 0.65);
+  background: rgba(124, 58, 237, 0.18);
+  color: #ede9fe;
+}
+
+.pattern-axis {
+  display: flex;
+  justify-content: space-between;
+  padding-left: 84px;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.pattern-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pattern-row {
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 10px;
+  align-items: start;
+}
+
+.pattern-day-label {
+  padding-top: 2px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.pattern-track {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+    rgba(15, 23, 42, 0.8);
+  overflow: hidden;
+  min-height: 18px;
+}
+
+.pattern-guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.pattern-segment {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.35);
+  border: 1px solid transparent;
+}
+
+.pattern-segment.feeding-breast-left {
+  background: rgba(56, 189, 248, 0.2);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #e0f2fe;
+}
+.pattern-segment.feeding-breast-right {
+  background: rgba(14, 165, 233, 0.28);
+  border-color: rgba(14, 165, 233, 0.65);
+  color: #e0f2fe;
+}
+.pattern-segment.feeding-bottle {
+  background: rgba(34, 211, 238, 0.22);
+  border-color: rgba(34, 211, 238, 0.58);
+  color: #cffafe;
+}
+.pattern-segment.sleep {
+  background: rgba(139, 92, 246, 0.24);
+  border-color: rgba(167, 139, 250, 0.72);
+  color: #ede9fe;
+}
+.pattern-segment.diaper-wet {
+  background: rgba(16, 185, 129, 0.24);
+  border-color: rgba(52, 211, 153, 0.6);
+  color: #d1fae5;
+}
+.pattern-segment.diaper-dirty {
+  background: rgba(245, 158, 11, 0.22);
+  border-color: rgba(251, 191, 36, 0.58);
+  color: #fef3c7;
+}
+.pattern-segment.diaper-both {
+  background: rgba(244, 114, 182, 0.22);
+  border-color: rgba(244, 114, 182, 0.58);
+  color: #fce7f3;
+}
+
 /* ── 유틸 ─────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 

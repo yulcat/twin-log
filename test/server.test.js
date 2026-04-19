@@ -120,6 +120,47 @@ test('events API date filters use local calendar days', async () => {
   });
 });
 
+test('events range API returns weekly pattern candidates for the selected baby', async () => {
+  await withServer(async ({ baseUrl }) => {
+    await jsonFetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      body: JSON.stringify({
+        baby: 'a',
+        type: 'sleep',
+        startTime: '2026-04-18T14:00:00.000Z',
+        endTime: '2026-04-18T17:00:00.000Z',
+      }),
+    });
+    await jsonFetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      body: JSON.stringify({
+        baby: 'a',
+        type: 'feeding_bottle',
+        startTime: '2026-04-16T03:00:00.000Z',
+        endTime: '2026-04-16T03:00:00.000Z',
+        amount: 90,
+      }),
+    });
+    await jsonFetch(`${baseUrl}/api/events`, {
+      method: 'POST',
+      body: JSON.stringify({
+        baby: 'b',
+        type: 'sleep',
+        startTime: '2026-04-18T15:00:00.000Z',
+        endTime: '2026-04-18T16:00:00.000Z',
+      }),
+    });
+
+    const range = await jsonFetch(`${baseUrl}/api/events/range?start=2026-04-16&end=2026-04-19&baby=a`);
+    assert.equal(range.res.status, 200);
+    assert.deepEqual(range.body.map(event => event.type), ['sleep', 'feeding_bottle']);
+    assert(range.body.every(event => event.baby === 'a'));
+
+    const missing = await jsonFetch(`${baseUrl}/api/events/range?end=2026-04-19&baby=a`);
+    assert.equal(missing.res.status, 400);
+  });
+});
+
 test('growth API creates, sorts by date, filters by baby, and deletes records', async () => {
   await withServer(async ({ baseUrl }) => {
     const older = await jsonFetch(`${baseUrl}/api/growth`, {

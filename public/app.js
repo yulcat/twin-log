@@ -6,6 +6,13 @@ function typeSlug(type) {
   return type.replace(/^feeding_/, '').replace(/_/g, '-');
 }
 
+const patternHelpers = window.TwinLogPatterns || {};
+const {
+  PATTERN_TYPE_ORDER = [],
+  buildPatternRows = () => ({ rows: [] }),
+  getPatternRange = date => ({ startDate: date, endDate: date }),
+} = patternHelpers;
+
 // ── 상태 ────────────────────────────────────────────────────
 const state = {
   currentBaby: 'a',
@@ -19,7 +26,13 @@ const state = {
   bottlePending: null,  // { baby }
   manualEntry: null,    // { baby, category }
   eventModalTarget: null, // 이벤트 상세
-  stats: { a: {}, b: {} }
+  stats: { a: {}, b: {} },
+  pattern: {
+    events: [],
+    startDate: null,
+    endDate: null,
+    selectedTypes: new Set(PATTERN_TYPE_ORDER),
+  }
 };
 
 // ── 유틸 ───────────────────────────────────────────────────
@@ -82,6 +95,27 @@ function clampMinutes(value, fallback) {
   const n = parseInt(value, 10);
   return Number.isFinite(n) && n > 0 ? n : fallback;
 }
+function patternBabyName(baby) {
+  return baby === 'a' ? '아둥이' : '바둥이';
+}
+function patternTypeClass(type) {
+  return type.replace(/_/g, '-');
+}
+function patternTypeLabel(type) {
+  const info = TYPE_INFO[type] || { label: type };
+  return info.label;
+}
+function patternDayLabel(dateStr) {
+  const today = todayStr();
+  const yesterday = dateKey(new Date(Date.now() - 86400000));
+  if (dateStr === today) return `${fmtDate(dateStr)} 오늘`;
+  if (dateStr === yesterday) return `${fmtDate(dateStr)} 어제`;
+  return fmtDate(dateStr);
+}
+function isModalOpen(id) {
+  const modal = document.getElementById(id);
+  return Boolean(modal && modal.classList.contains('open'));
+}
 
 const TYPE_INFO = {
   feeding_breast_left:  { icon: '◀️', label: '모유(왼쪽)' },
@@ -124,6 +158,11 @@ async function fetchEvents(date) {
 async function fetchStats(date) {
   return apiFetch(`/api/stats/${date}`);
 }
+async function fetchEventRange({ startDate, endDate, baby }) {
+  const params = new URLSearchParams({ start: startDate, end: endDate });
+  if (baby) params.set('baby', baby);
+  return apiFetch(`/api/events/range?${params.toString()}`);
+}
 
 function upsertEvent(event) {
   if (!event.startTime || dateKey(event.startTime) !== state.selectedDate) return false;
@@ -164,6 +203,7 @@ socket.on('event:new', (event) => {
     }
     renderAll();
     refreshStats();
+    if (isModalOpen('pattern-modal')) loadPatternView();
   }
 });
 socket.on('event:update', (event) => {
@@ -187,6 +227,7 @@ socket.on('event:update', (event) => {
     }
     renderAll();
     refreshStats();
+    if (isModalOpen('pattern-modal')) loadPatternView();
   }
 });
 socket.on('event:delete', (id) => {
@@ -195,6 +236,7 @@ socket.on('event:delete', (id) => {
   if (state.events.length !== before) {
     renderAll();
     refreshStats();
+    if (isModalOpen('pattern-modal')) loadPatternView();
   }
 });
 
@@ -599,6 +641,115 @@ async function openTimeline() {
   openModal('timeline-modal');
 }
 
+function renderPatternFilters() {
+  const container = document.getElementById('pattern-filters');
+  if (!container) return;
+  const selectedTypes = state.pattern.selectedTypes;
+  container.innerHTML = PATTERN_TYPE_ORDER.map(type => {
+    const info = TYPE_INFO[type] || { icon: '📝', label: type };
+    return `
+      <button class="pattern-chip ${selectedTypes.has(type) ? 'active' : ''}" data-type="${type}">
+        <span>${info.icon}</span>
+        <span>${info.label}</span>
+      </button>
+    `;
+  }).join('');
+
+  container.querySelectorAll('.pattern-chip').forEach(button => {
+    button.addEventListener('click', () => {
+      togglePatternType(button.dataset.type);
+    });
+  });
+}
+
+function renderPatternView() {
+  const title = document.getElementById('pattern-modal-title');
+  const summary = document.getElementById('pattern-summary');
+  const chart = document.getElementById('pattern-chart');
+  if (!title || !summary || !chart) return;
+
+  title.textContent = `🧶 ${patternBabyName(state.currentBaby)} 패턴`;
+  if (!state.pattern.startDate || !state.pattern.endDate) {
+    summary.textContent = '';
+    chart.innerHTML = '<div class="empty-list">패턴 데이터를 불러오는 중이에요</div>';
+    return;
+  }
+
+  summary.textContent = `최근 7일 · ${fmtDate(state.pattern.startDate)} ~ ${fmtDate(state.pattern.endDate)} · 여러 타입을 같이 켜서 겹침 패턴을 보세요`;
+  renderPatternFilters();
+
+  if (state.pattern.selectedTypes.size === 0) {
+    chart.innerHTML = '<div class="empty-list">표시할 타입을 하나 이상 선택해주세요</div>';
+    return;
+  }
+
+  const pattern = buildPatternRows(state.pattern.events, {
+    baby: state.currentBaby,
+    endDate: state.pattern.endDate,
+    dayCount: 7,
+    selectedTypes: [...state.pattern.selectedTypes],
+    now: new Date().toISOString(),
+  });
+
+  const totalSegments = pattern.rows.reduce((sum, row) => sum + row.segments.length, 0);
+  if (totalSegments === 0) {
+    chart.innerHTML = '<div class="empty-list">선택한 조건의 기록이 아직 없어요</div>';
+    return;
+  }
+
+  chart.innerHTML = pattern.rows.map(row => {
+    const laneHeight = 18;
+    const laneGap = 4;
+    const trackHeight = row.laneCount * laneHeight + Math.max(0, row.laneCount - 1) * laneGap;
+    const guides = [0, 25, 50, 75, 100].map(left => `<span class="pattern-guide" style="left:${left}%"></span>`).join('');
+    const segments = row.segments.map(segment => {
+      const info = TYPE_INFO[segment.type] || { icon: '📝', label: segment.type };
+      const top = segment.lane * (laneHeight + laneGap);
+      const label = `${info.icon} ${info.label}`;
+      const detail = `${patternDayLabel(row.date)} · ${label}`;
+      const shortText = segment.widthPct > 16 ? label : segment.widthPct > 7 ? info.icon : '';
+      return `
+        <div
+          class="pattern-segment ${patternTypeClass(segment.type)}"
+          title="${detail}"
+          style="left:${segment.startPct}%; width:${segment.widthPct}%; top:${top}px; height:${laneHeight}px;"
+        >${shortText}</div>
+      `;
+    }).join('');
+
+    return `
+      <div class="pattern-row">
+        <div class="pattern-day-label">${patternDayLabel(row.date)}</div>
+        <div class="pattern-track" style="height:${trackHeight}px;">
+          ${guides}
+          ${segments}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function togglePatternType(type) {
+  if (!type) return;
+  if (state.pattern.selectedTypes.has(type)) {
+    state.pattern.selectedTypes.delete(type);
+  } else {
+    state.pattern.selectedTypes.add(type);
+  }
+  renderPatternView();
+}
+
+async function loadPatternView() {
+  const { startDate, endDate } = getPatternRange(state.selectedDate, 7);
+  state.pattern.startDate = startDate;
+  state.pattern.endDate = endDate;
+  if (!(state.pattern.selectedTypes instanceof Set)) {
+    state.pattern.selectedTypes = new Set(PATTERN_TYPE_ORDER);
+  }
+  state.pattern.events = await fetchEventRange({ startDate, endDate, baby: state.currentBaby });
+  renderPatternView();
+}
+
 // ── 날짜 탭 ─────────────────────────────────────────────────
 function renderDateTabs() {
   const tabs = document.getElementById('date-tabs');
@@ -620,6 +771,9 @@ function renderDateTabs() {
       tabs.querySelectorAll('.date-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       await loadData();
+      if (isModalOpen('pattern-modal')) {
+        await loadPatternView();
+      }
     });
   });
 }
@@ -638,13 +792,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 아기 탭 전환
   document.querySelectorAll('.baby-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const baby = btn.dataset.baby;
       state.currentBaby = baby;
       document.querySelectorAll('.baby-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       document.querySelectorAll('.baby-panel').forEach(p => p.classList.add('hidden'));
       document.getElementById(`panel-${baby}`).classList.remove('hidden');
+      if (isModalOpen('pattern-modal')) {
+        await loadPatternView();
+      }
     });
   });
 
@@ -721,7 +878,13 @@ document.addEventListener('DOMContentLoaded', () => {
     closeModal('manual-modal');
   });
 
-  // 타임라인
+  // 패턴 / 타임라인
+  document.getElementById('pattern-btn').addEventListener('click', async () => {
+    openModal('pattern-modal');
+    document.getElementById('pattern-chart').innerHTML = '<div class="empty-list">패턴 데이터를 불러오는 중이에요</div>';
+    await loadPatternView();
+  });
+  document.getElementById('close-pattern').addEventListener('click', () => closeModal('pattern-modal'));
   document.getElementById('timeline-btn').addEventListener('click', openTimeline);
   document.getElementById('close-timeline').addEventListener('click', () => closeModal('timeline-modal'));
 

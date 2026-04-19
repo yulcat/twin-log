@@ -6,6 +6,7 @@ const { JSDOM } = require('jsdom');
 
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'public', 'index.html'), 'utf8');
+const patternsJs = fs.readFileSync(path.join(root, 'public', 'patterns.js'), 'utf8');
 const appJs = fs.readFileSync(path.join(root, 'public', 'app.js'), 'utf8');
 
 function createClientHarness() {
@@ -17,6 +18,7 @@ function createClientHarness() {
   const { window } = dom;
   const requests = [];
   const socketHandlers = {};
+  let rangeEvents = [];
 
   window.io = () => ({
     on(event, handler) {
@@ -44,6 +46,9 @@ function createClientHarness() {
     const parsedBody = options.body ? JSON.parse(options.body) : null;
     requests.push({ url: String(url), method: options.method || 'GET', body: parsedBody });
 
+    if (String(url).startsWith('/api/events/range')) {
+      return { json: async () => rangeEvents };
+    }
     if (String(url).startsWith('/api/events') && options.method === 'POST') {
       return {
         json: async () => ({
@@ -71,9 +76,11 @@ function createClientHarness() {
     return { json: async () => ({}) };
   };
 
+  window.eval(patternsJs);
   window.eval(`${appJs}
 window.__twinLogTest = {
   state,
+  PATTERN_TYPE_ORDER,
   todayStr,
   dateKey,
   openManualEntry,
@@ -82,10 +89,20 @@ window.__twinLogTest = {
   handleActionBtn,
   startTimer,
   restoreActiveTimers,
+  loadPatternView,
+  togglePatternType,
+  renderPatternView,
 };
 `);
 
-  return { window, requests, socketHandlers };
+  return {
+    window,
+    requests,
+    socketHandlers,
+    setRangeEvents(events) {
+      rangeEvents = events;
+    },
+  };
 }
 
 function postRequests(requests) {
@@ -207,4 +224,53 @@ test('timer button starts one event and stops the same event', async (t) => {
   assert.equal(typeof patch.body.endTime, 'string');
   assert.equal(api.state.activeTimers.a.feeding_breast_left, null);
   assert.equal(window.document.getElementById('btn-breast-left-a').classList.contains('active'), false);
+});
+
+test('pattern view loads the weekly range for the current baby and chip filters rerender the chart', async (t) => {
+  const { window, requests, setRangeEvents } = createClientHarness();
+  t.after(() => window.close());
+  const api = window.__twinLogTest;
+
+  api.state.currentBaby = 'b';
+  api.state.selectedDate = '2026-04-20';
+  setRangeEvents([
+    {
+      id: 'sleep-1',
+      baby: 'b',
+      type: 'sleep',
+      startTime: '2026-04-19T14:00:00.000Z',
+      endTime: '2026-04-19T17:00:00.000Z',
+    },
+    {
+      id: 'bottle-1',
+      baby: 'b',
+      type: 'feeding_bottle',
+      startTime: '2026-04-20T01:00:00.000Z',
+      endTime: '2026-04-20T01:00:00.000Z',
+      amount: 80,
+    },
+    {
+      id: 'other-baby',
+      baby: 'a',
+      type: 'sleep',
+      startTime: '2026-04-20T01:00:00.000Z',
+      endTime: '2026-04-20T02:00:00.000Z',
+    },
+  ]);
+
+  await api.loadPatternView();
+
+  const rangeRequest = requests.find(req => req.url.startsWith('/api/events/range?'));
+  assert(rangeRequest);
+  assert.match(rangeRequest.url, /start=2026-04-14/);
+  assert.match(rangeRequest.url, /end=2026-04-20/);
+  assert.match(rangeRequest.url, /baby=b/);
+  assert.match(window.document.getElementById('pattern-modal-title').textContent, /바둥이/);
+  assert.equal(window.document.querySelectorAll('.pattern-chip').length, api.PATTERN_TYPE_ORDER.length);
+  assert(window.document.querySelector('.pattern-segment.sleep'));
+  assert(window.document.querySelector('.pattern-segment.feeding-bottle'));
+
+  api.togglePatternType('feeding_bottle');
+  assert.equal(window.document.querySelector('.pattern-segment.feeding-bottle'), null);
+  assert(window.document.querySelector('.pattern-segment.sleep'));
 });
