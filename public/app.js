@@ -118,6 +118,14 @@ function patternDayLabel(dateStr) {
   if (dateStr === yesterday) return `${fmtDate(dateStr)} 어제`;
   return fmtDate(dateStr);
 }
+function patternDayParts(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const days = ['일', '월', '화', '수', '목', '금', '토'];
+  return {
+    date: `${d.getMonth() + 1}/${d.getDate()}`,
+    day: days[d.getDay()],
+  };
+}
 function isModalOpen(id) {
   const modal = document.getElementById(id);
   return Boolean(modal && modal.classList.contains('open'));
@@ -708,6 +716,8 @@ function renderPatternView() {
     <span class="pattern-time-label" style="top:${(hour / 24) * 100}%">${hour}시</span>
   `).join('');
   const dayColumns = pattern.rows.map(row => {
+    const dayParts = patternDayParts(row.date);
+    const fullDayLabel = patternDayLabel(row.date);
     const laneGapPct = 2;
     const laneWidthPct = (100 - (row.laneCount - 1) * laneGapPct) / row.laneCount;
     const guides = [0, 25, 50, 75, 100].map(top => `<span class="pattern-guide" style="top:${top}%"></span>`).join('');
@@ -716,7 +726,7 @@ function renderPatternView() {
       const left = segment.lane * (laneWidthPct + laneGapPct);
       const heightPct = Math.max(segment.widthPct, 1.4);
       const label = `${info.icon} ${info.label}`;
-      const detail = `${patternDayLabel(row.date)} · ${label}`;
+      const detail = `${fullDayLabel} · ${label}`;
       const shortText = heightPct > 5 ? label : info.icon;
       return `
         <div
@@ -729,7 +739,10 @@ function renderPatternView() {
 
     return `
       <div class="pattern-day-column">
-        <div class="pattern-day-label">${patternDayLabel(row.date)}</div>
+        <div class="pattern-day-label" title="${fullDayLabel}">
+          <span>${dayParts.date}</span>
+          <span>${dayParts.day}</span>
+        </div>
         <div class="pattern-track">
           ${guides}
           ${segments}

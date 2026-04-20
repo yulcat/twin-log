@@ -541,6 +541,7 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   flex-direction: column;
   gap: 12px;
   overflow-y: auto;
+  min-width: 0;
 }
 
 .pattern-summary {
@@ -573,13 +574,17 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
 
 .pattern-chart {
   min-height: 620px;
+  min-width: 0;
+  width: 100%;
 }
 
 .pattern-grid {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: clamp(24px, 7vw, 34px) minmax(0, 1fr);
+  gap: clamp(4px, 1.6vw, 8px);
   min-height: 620px;
+  min-width: 0;
+  width: 100%;
 }
 
 .pattern-time-axis {
@@ -599,8 +604,8 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
 
 .pattern-days {
   display: grid;
-  grid-template-columns: repeat(7, minmax(48px, 1fr));
-  gap: 6px;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: clamp(2px, 1vw, 6px);
   min-width: 0;
 }
 
@@ -612,11 +617,14 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   height: 24px;
   margin-bottom: 4px;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   font-weight: 600;
   line-height: 1.15;
   text-align: center;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .pattern-track {
@@ -720,13 +728,18 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
 }
 
 @media (max-width: 390px) {
+  .pattern-modal-body {
+    padding-inline: 12px;
+  }
   .pattern-grid {
-    grid-template-columns: 30px minmax(0, 1fr);
-    gap: 6px;
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 4px;
   }
   .pattern-days {
-    grid-template-columns: repeat(7, minmax(42px, 1fr));
-    gap: 4px;
+    gap: 3px;
+  }
+  .pattern-day-label {
+    font-size: 0.58rem;
   }
   .pattern-segment {
     font-size: 0.58rem;
