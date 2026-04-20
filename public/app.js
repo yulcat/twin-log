@@ -11,6 +11,7 @@ const {
   PATTERN_TYPE_ORDER = [],
   buildPatternRows = () => ({ rows: [] }),
   getPatternRange = date => ({ startDate: date, endDate: date }),
+  normalizePatternType = type => type,
 } = patternHelpers;
 
 // ── 상태 ────────────────────────────────────────────────────
@@ -99,11 +100,16 @@ function patternBabyName(baby) {
   return baby === 'a' ? '아둥이' : '바둥이';
 }
 function patternTypeClass(type) {
-  return type.replace(/_/g, '-');
+  return normalizePatternType(type).replace(/_/g, '-');
 }
 function patternTypeLabel(type) {
   const info = TYPE_INFO[type] || { label: type };
   return info.label;
+}
+function normalizePatternSelection(selectedTypes) {
+  const selected = selectedTypes instanceof Set ? [...selectedTypes] : PATTERN_TYPE_ORDER;
+  const normalized = new Set(selected.map(normalizePatternType));
+  return new Set(PATTERN_TYPE_ORDER.filter(type => normalized.has(type)));
 }
 function patternDayLabel(dateStr) {
   const today = todayStr();
@@ -124,7 +130,7 @@ const TYPE_INFO = {
   sleep:                { icon: '🌙', label: '수면' },
   diaper_wet:           { icon: '💧', label: '소변' },
   diaper_dirty:         { icon: '💩', label: '대변' },
-  diaper_both:          { icon: '🌊', label: '혼합(소+대)' },
+  diaper_both:          { icon: '💩', label: '대변' },
 };
 
 const TIMER_TYPES = ['feeding_breast_left', 'feeding_breast_right', 'sleep'];
@@ -644,11 +650,12 @@ async function openTimeline() {
 function renderPatternFilters() {
   const container = document.getElementById('pattern-filters');
   if (!container) return;
+  state.pattern.selectedTypes = normalizePatternSelection(state.pattern.selectedTypes);
   const selectedTypes = state.pattern.selectedTypes;
   container.innerHTML = PATTERN_TYPE_ORDER.map(type => {
     const info = TYPE_INFO[type] || { icon: '📝', label: type };
     return `
-      <button class="pattern-chip ${selectedTypes.has(type) ? 'active' : ''}" data-type="${type}">
+      <button class="pattern-chip ${patternTypeClass(type)} ${selectedTypes.has(type) ? 'active' : ''}" data-type="${type}" aria-pressed="${selectedTypes.has(type) ? 'true' : 'false'}">
         <span>${info.icon}</span>
         <span>${info.label}</span>
       </button>
@@ -675,7 +682,7 @@ function renderPatternView() {
     return;
   }
 
-  summary.textContent = `최근 7일 · ${fmtDate(state.pattern.startDate)} ~ ${fmtDate(state.pattern.endDate)} · 여러 타입을 같이 켜서 겹침 패턴을 보세요`;
+  summary.textContent = `최근 7일 · ${fmtDate(state.pattern.startDate)} ~ ${fmtDate(state.pattern.endDate)} · 세로축은 하루 24시간이에요`;
   renderPatternFilters();
 
   if (state.pattern.selectedTypes.size === 0) {
@@ -697,44 +704,55 @@ function renderPatternView() {
     return;
   }
 
-  chart.innerHTML = pattern.rows.map(row => {
-    const laneHeight = 18;
-    const laneGap = 4;
-    const trackHeight = row.laneCount * laneHeight + Math.max(0, row.laneCount - 1) * laneGap;
-    const guides = [0, 25, 50, 75, 100].map(left => `<span class="pattern-guide" style="left:${left}%"></span>`).join('');
+  const timeLabels = [0, 6, 12, 18, 24].map(hour => `
+    <span class="pattern-time-label" style="top:${(hour / 24) * 100}%">${hour}시</span>
+  `).join('');
+  const dayColumns = pattern.rows.map(row => {
+    const laneGapPct = 2;
+    const laneWidthPct = (100 - (row.laneCount - 1) * laneGapPct) / row.laneCount;
+    const guides = [0, 25, 50, 75, 100].map(top => `<span class="pattern-guide" style="top:${top}%"></span>`).join('');
     const segments = row.segments.map(segment => {
       const info = TYPE_INFO[segment.type] || { icon: '📝', label: segment.type };
-      const top = segment.lane * (laneHeight + laneGap);
+      const left = segment.lane * (laneWidthPct + laneGapPct);
+      const heightPct = Math.max(segment.widthPct, 1.4);
       const label = `${info.icon} ${info.label}`;
       const detail = `${patternDayLabel(row.date)} · ${label}`;
-      const shortText = segment.widthPct > 16 ? label : segment.widthPct > 7 ? info.icon : '';
+      const shortText = heightPct > 5 ? label : info.icon;
       return `
         <div
           class="pattern-segment ${patternTypeClass(segment.type)}"
           title="${detail}"
-          style="left:${segment.startPct}%; width:${segment.widthPct}%; top:${top}px; height:${laneHeight}px;"
+          style="top:${segment.startPct}%; height:${heightPct}%; left:${left}%; width:${laneWidthPct}%;"
         >${shortText}</div>
       `;
     }).join('');
 
     return `
-      <div class="pattern-row">
+      <div class="pattern-day-column">
         <div class="pattern-day-label">${patternDayLabel(row.date)}</div>
-        <div class="pattern-track" style="height:${trackHeight}px;">
+        <div class="pattern-track">
           ${guides}
           ${segments}
         </div>
       </div>
     `;
   }).join('');
+
+  chart.innerHTML = `
+    <div class="pattern-grid">
+      <div class="pattern-time-axis" aria-hidden="true">${timeLabels}</div>
+      <div class="pattern-days">${dayColumns}</div>
+    </div>
+  `;
 }
 
 function togglePatternType(type) {
-  if (!type) return;
-  if (state.pattern.selectedTypes.has(type)) {
-    state.pattern.selectedTypes.delete(type);
+  const normalizedType = normalizePatternType(type);
+  if (!normalizedType) return;
+  if (state.pattern.selectedTypes.has(normalizedType)) {
+    state.pattern.selectedTypes.delete(normalizedType);
   } else {
-    state.pattern.selectedTypes.add(type);
+    state.pattern.selectedTypes.add(normalizedType);
   }
   renderPatternView();
 }
@@ -746,6 +764,7 @@ async function loadPatternView() {
   if (!(state.pattern.selectedTypes instanceof Set)) {
     state.pattern.selectedTypes = new Set(PATTERN_TYPE_ORDER);
   }
+  state.pattern.selectedTypes = normalizePatternSelection(state.pattern.selectedTypes);
   state.pattern.events = await fetchEventRange({ startDate, endDate, baby: state.currentBaby });
   renderPatternView();
 }

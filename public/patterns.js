@@ -18,8 +18,11 @@
     'sleep',
     'diaper_wet',
     'diaper_dirty',
-    'diaper_both',
   ];
+
+  function normalizePatternType(type) {
+    return type === 'diaper_both' ? 'diaper_dirty' : type;
+  }
 
   function asDate(value) {
     return value instanceof Date ? new Date(value.getTime()) : new Date(value);
@@ -99,7 +102,8 @@
 
     return {
       id: event.id,
-      type: event.type,
+      type: normalizePatternType(event.type),
+      sourceType: event.type,
       baby: event.baby,
       startMinute,
       endMinute,
@@ -139,14 +143,14 @@
     const dayCount = options.dayCount || DEFAULT_DAY_COUNT;
     const nowIso = options.now || new Date().toISOString();
     const selectedTypes = options.selectedTypes && options.selectedTypes.length
-      ? new Set(options.selectedTypes)
+      ? new Set(options.selectedTypes.map(normalizePatternType))
       : new Set(PATTERN_TYPE_ORDER);
     const { startDate } = getPatternRange(endDate, dayCount);
     const dates = listDateKeys(startDate, endDate);
 
     const rows = dates.map(day => {
       const rawSegments = events
-        .filter(event => event && event.baby === baby && selectedTypes.has(event.type))
+        .filter(event => event && event.baby === baby && selectedTypes.has(normalizePatternType(event.type)))
         .map(event => toSegment(event, day, nowIso))
         .filter(Boolean)
         .sort((left, right) => left.startMinute - right.startMinute || left.endMinute - right.endMinute);
@@ -181,6 +185,7 @@
     eventRangeOverlaps,
     getPatternRange,
     listDateKeys,
+    normalizePatternType,
     resolveEventEnd,
   };
 });

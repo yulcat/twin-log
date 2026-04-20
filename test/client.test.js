@@ -250,6 +250,13 @@ test('pattern view loads the weekly range for the current baby and chip filters 
       amount: 80,
     },
     {
+      id: 'both-1',
+      baby: 'b',
+      type: 'diaper_both',
+      startTime: '2026-04-20T03:00:00.000Z',
+      endTime: null,
+    },
+    {
       id: 'other-baby',
       baby: 'a',
       type: 'sleep',
@@ -267,10 +274,21 @@ test('pattern view loads the weekly range for the current baby and chip filters 
   assert.match(rangeRequest.url, /baby=b/);
   assert.match(window.document.getElementById('pattern-modal-title').textContent, /바둥이/);
   assert.equal(window.document.querySelectorAll('.pattern-chip').length, api.PATTERN_TYPE_ORDER.length);
+  assert.equal(window.document.querySelector('.pattern-chip[data-type="diaper_both"]'), null);
+  assert(window.document.querySelector('.pattern-chip.diaper-dirty.active'));
+  assert(window.document.querySelector('.pattern-grid'));
+  assert(window.document.querySelector('.pattern-time-axis'));
   assert(window.document.querySelector('.pattern-segment.sleep'));
   assert(window.document.querySelector('.pattern-segment.feeding-bottle'));
+  const dirtySegment = window.document.querySelector('.pattern-segment.diaper-dirty');
+  assert(dirtySegment);
+  assert.match(dirtySegment.getAttribute('style'), /top:/);
+  assert.match(dirtySegment.getAttribute('style'), /height:/);
 
   api.togglePatternType('feeding_bottle');
   assert.equal(window.document.querySelector('.pattern-segment.feeding-bottle'), null);
   assert(window.document.querySelector('.pattern-segment.sleep'));
+
+  api.togglePatternType('diaper_dirty');
+  assert.equal(window.document.querySelector('.pattern-segment.diaper-dirty'), null);
 });

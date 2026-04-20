@@ -540,6 +540,7 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   display: flex;
   flex-direction: column;
   gap: 12px;
+  overflow-y: auto;
 }
 
 .pattern-summary {
@@ -567,55 +568,73 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   cursor: pointer;
 }
 .pattern-chip.active {
-  border-color: rgba(124, 58, 237, 0.65);
-  background: rgba(124, 58, 237, 0.18);
-  color: #ede9fe;
-}
-
-.pattern-axis {
-  display: flex;
-  justify-content: space-between;
-  padding-left: 84px;
-  color: var(--text-dim);
-  font-size: 0.7rem;
+  font-weight: 700;
 }
 
 .pattern-chart {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  min-height: 620px;
 }
 
-.pattern-row {
+.pattern-grid {
   display: grid;
-  grid-template-columns: 74px 1fr;
-  gap: 10px;
-  align-items: start;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 8px;
+  min-height: 620px;
+}
+
+.pattern-time-axis {
+  position: relative;
+  height: 576px;
+  margin-top: 28px;
+}
+
+.pattern-time-label {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.pattern-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(48px, 1fr));
+  gap: 6px;
+  min-width: 0;
+}
+
+.pattern-day-column {
+  min-width: 0;
 }
 
 .pattern-day-label {
-  padding-top: 2px;
+  height: 24px;
+  margin-bottom: 4px;
   color: var(--text-muted);
-  font-size: 0.76rem;
+  font-size: 0.68rem;
   font-weight: 600;
+  line-height: 1.15;
+  text-align: center;
+  overflow: hidden;
 }
 
 .pattern-track {
   position: relative;
-  border-radius: 12px;
+  height: 576px;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
     rgba(15, 23, 42, 0.8);
   overflow: hidden;
-  min-height: 18px;
 }
 
 .pattern-guide {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
+  left: 0;
+  right: 0;
+  height: 1px;
   background: rgba(148, 163, 184, 0.18);
 }
 
@@ -624,10 +643,14 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-size: 0.66rem;
+  padding: 2px;
+  border-radius: 6px;
+  font-size: 0.62rem;
   font-weight: 700;
+  line-height: 1.05;
+  text-align: center;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -640,8 +663,18 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   border-color: rgba(56, 189, 248, 0.55);
   color: #e0f2fe;
 }
+.pattern-chip.feeding-breast-left.active {
+  background: rgba(56, 189, 248, 0.18);
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #e0f2fe;
+}
 .pattern-segment.feeding-breast-right {
   background: rgba(14, 165, 233, 0.28);
+  border-color: rgba(14, 165, 233, 0.65);
+  color: #e0f2fe;
+}
+.pattern-chip.feeding-breast-right.active {
+  background: rgba(14, 165, 233, 0.2);
   border-color: rgba(14, 165, 233, 0.65);
   color: #e0f2fe;
 }
@@ -650,8 +683,18 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   border-color: rgba(34, 211, 238, 0.58);
   color: #cffafe;
 }
+.pattern-chip.feeding-bottle.active {
+  background: rgba(34, 211, 238, 0.18);
+  border-color: rgba(34, 211, 238, 0.58);
+  color: #cffafe;
+}
 .pattern-segment.sleep {
   background: rgba(139, 92, 246, 0.24);
+  border-color: rgba(167, 139, 250, 0.72);
+  color: #ede9fe;
+}
+.pattern-chip.sleep.active {
+  background: rgba(139, 92, 246, 0.2);
   border-color: rgba(167, 139, 250, 0.72);
   color: #ede9fe;
 }
@@ -660,15 +703,34 @@ main { padding: 16px; max-width: 480px; margin: 0 auto; }
   border-color: rgba(52, 211, 153, 0.6);
   color: #d1fae5;
 }
+.pattern-chip.diaper-wet.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(52, 211, 153, 0.6);
+  color: #d1fae5;
+}
 .pattern-segment.diaper-dirty {
   background: rgba(245, 158, 11, 0.22);
   border-color: rgba(251, 191, 36, 0.58);
   color: #fef3c7;
 }
-.pattern-segment.diaper-both {
-  background: rgba(244, 114, 182, 0.22);
-  border-color: rgba(244, 114, 182, 0.58);
-  color: #fce7f3;
+.pattern-chip.diaper-dirty.active {
+  background: rgba(245, 158, 11, 0.18);
+  border-color: rgba(251, 191, 36, 0.58);
+  color: #fef3c7;
+}
+
+@media (max-width: 390px) {
+  .pattern-grid {
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 6px;
+  }
+  .pattern-days {
+    grid-template-columns: repeat(7, minmax(42px, 1fr));
+    gap: 4px;
+  }
+  .pattern-segment {
+    font-size: 0.58rem;
+  }
 }
 
 /* ── 유틸 ─────────────────────────────────────────────────── */

@@ -5,6 +5,7 @@ const {
   buildPatternRows,
   eventRangeOverlaps,
   getPatternRange,
+  normalizePatternType,
 } = require('../public/patterns');
 
 test('getPatternRange returns the selected day plus the previous six local days', () => {
@@ -84,4 +85,47 @@ test('buildPatternRows clips overnight events, filters by type, and assigns lane
   assert.equal(secondDay.segments[0].isClippedStart, true);
   assert.equal(secondDay.segments[0].startMinute, 0);
   assert.equal(Math.round(secondDay.segments[0].endMinute), 120);
+});
+
+test('buildPatternRows merges diaper_both into dirty pattern segments', () => {
+  const events = [
+    {
+      id: 'both-1',
+      baby: 'a',
+      type: 'diaper_both',
+      startTime: '2026-04-20T03:00:00.000Z',
+      endTime: null,
+    },
+    {
+      id: 'wet-1',
+      baby: 'a',
+      type: 'diaper_wet',
+      startTime: '2026-04-20T04:00:00.000Z',
+      endTime: null,
+    },
+  ];
+
+  assert.equal(normalizePatternType('diaper_both'), 'diaper_dirty');
+
+  const dirtyPattern = buildPatternRows(events, {
+    baby: 'a',
+    endDate: '2026-04-20',
+    dayCount: 1,
+    selectedTypes: ['diaper_dirty'],
+    now: '2026-04-20T05:00:00.000Z',
+  });
+
+  assert.deepEqual(dirtyPattern.rows[0].segments.map(segment => segment.id), ['both-1']);
+  assert.equal(dirtyPattern.rows[0].segments[0].type, 'diaper_dirty');
+  assert.equal(dirtyPattern.rows[0].segments[0].sourceType, 'diaper_both');
+
+  const legacySelectionPattern = buildPatternRows(events, {
+    baby: 'a',
+    endDate: '2026-04-20',
+    dayCount: 1,
+    selectedTypes: ['diaper_both'],
+    now: '2026-04-20T05:00:00.000Z',
+  });
+
+  assert.deepEqual(legacySelectionPattern.rows[0].segments.map(segment => segment.id), ['both-1']);
 });
